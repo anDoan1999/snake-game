@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>贪吃蛇 · Snake</title>
+<style>
+  :root {
+    --accent: #22d3ee;
+    --bg: #0f172a;
+    --bg-deep: #0a0a0a;
+    --panel: #1e293b;
+    --text: #e2e8f0;
+    --subtext: #94a3b8;
+    --border: rgba(255, 255, 255, 0.1);
+    --ghost: #c084fc;
+    /* 字体层级 */
+    --fs-title: 20px;   /* 标题：20px 加粗 */
+    --fs-body: 16px;    /* 正文：16px 常规 */
+    --fs-aux: 14px;     /* 辅助信息：14px 半透明（最小字号） */
+    /* 间距规范 */
+    --space: 24px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  /* 禁止页面滚动：html/body 均 overflow:hidden，动态视口单位避免移动端地址栏挤压 */
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body {
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background:
+      radial-gradient(1200px 800px at 50% -10%, rgba(34, 211, 238, 0.10), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100dvh;
+    min-height: 0;
+    padding: 12px;
+    overflow: hidden;
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space);
+    width: 100%;
+    max-width: 620px;
+    max-height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* ---------- 顶部 HUD ---------- */
+  #hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 0 4px;
+    flex: 0 0 auto;
+  }
+  #hud .stats { display: flex; gap: 12px; }
+  .stat {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 8px 14px;
+    text-align: center;
+    min-width: 88px;
+  }
+  .stat .label { font-size: var(--fs-aux); color: var(--subtext); letter-spacing: 1px; }
+  .stat .value { font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .icon-btn {
+    width: 44px; height: 44px; min-width: 44px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--accent);
+    font-size: 18px;
+    cursor: pointer;
+    transition: transform .12s, box-shadow .12s;
+  }
+  .icon-btn:hover { box-shadow: 0 0 12px var(--accent); }
+  .icon-btn:active { transform: scale(.92); }
+
+  /* ---------- 棋盘 ---------- */
+  #board-wrap {
+    position: relative;
+    border-radius: 16px;
+    box-shadow: 0 0 0 1px var(--border), 0 0 32px rgba(34, 211, 238, 0.18);
+    overflow: hidden;
+    line-height: 0;
+    flex: 0 0 auto;
+  }
+  #game { display: block; touch-action: none; }
+
+  /* 连击徽章（常驻） */
+  #combo-badge {
+    position: absolute;
+    top: 10px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 4px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    pointer-events: none;
+    transition: opacity .2s;
+  }
+  #combo-badge.hidden { opacity: 0; }
+
+  /* 幽灵模式徽章 */
+  #ghost-badge {
+    position: absolute;
+    top: 44px; left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid var(--ghost);
+    color: var(--ghost);
+    border-radius: 999px;
+    padding: 4px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    pointer-events: none;
+    transition: opacity .2s;
+  }
+  #ghost-badge.hidden { opacity: 0; }
+
+  /* 连击漂浮提示 */
+  .combo-pop {
+    position: absolute;
+    top: 42px; left: 50%;
+    transform: translateX(-50%);
+    color: var(--accent);
+    font-weight: 800;
+    font-size: 18px;
+    text-shadow: 0 0 12px var(--accent);
+    pointer-events: none;
+    animation: comboPop 1s ease-out forwards;
+    white-space: nowrap;
+  }
+  @keyframes comboPop {
+    0% { opacity: 0; transform: translate(-50%, 8px) scale(.8); }
+    20% { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
+    100% { opacity: 0; transform: translate(-50%, -26px) scale(1); }
+  }
+
+  /* ---------- 覆盖层（安全居中：内容少时居中，溢出时可从顶部滚动） ---------- */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.94);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space);
+    padding: 24px;
+    text-align: center;
+    z-index: 10;
+    overflow-y: auto;
+  }
+  .overlay::before, .overlay::after { content: ''; margin: auto; }
+  .overlay.hidden { display: none; }
+
+  .title {
+    font-size: var(--fs-title);
+    font-weight: 700;
+    letter-spacing: 1px;
+    background: linear-gradient(90deg, var(--accent), #a78bfa);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .subtitle { color: var(--subtext); font-size: var(--fs-aux); }
+
+  .section-label { font-size: var(--fs-aux); color: var(--subtext); letter-spacing: 2px; }
+
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+  .btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 8px 18px;
+    font-size: var(--fs-body);
+    min-height: 44px;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: inherit;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(34, 211, 238, 0.12);
+    box-shadow: 0 0 12px rgba(34, 211, 238, 0.35);
+  }
+  .btn.primary {
+    background: var(--accent);
+    color: #06121a;
+    font-weight: 700;
+    font-size: var(--fs-body);
+    padding: 12px 34px;
+    min-height: 44px;
+    border: none;
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+  }
+  .btn.primary:hover { color: #06121a; transform: translateY(-1px); }
+  .btn.primary:active { transform: translateY(0) scale(.97); }
+
+  /* ---------- 排行榜：卡片式列表 ---------- */
+  .leaderboard {
+    width: 100%;
+    max-width: 360px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    text-align: left;
+  }
+  .leaderboard .lb-title {
+    padding: 12px 16px;
+    font-size: var(--fs-title);
+    font-weight: 700;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+  }
+  .lb-list { max-height: 240px; overflow-y: auto; }
+  .lb-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 40px;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: var(--fs-aux);
+  }
+  .lb-row:last-child { border-bottom: none; }
+  .lb-rank { width: 20px; flex: none; text-align: center; font-weight: 700; color: var(--subtext); }
+  .lb-score { min-width: 36px; flex: none; text-align: right; font-size: var(--fs-body); font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .lb-tag { flex: none; padding: 3px 10px; border-radius: 999px; font-size: var(--fs-aux); font-weight: 700; line-height: 1.4; }
+  .diff-easy   { color: #4ade80; background: rgba(74, 222, 128, 0.16); }
+  .diff-normal { color: #facc15; background: rgba(250, 204, 21, 0.16); }
+  .diff-hard   { color: #f87171; background: rgba(248, 113, 113, 0.16); }
+  .lb-time { flex: none; color: var(--subtext); font-size: var(--fs-aux); font-variant-numeric: tabular-nums; }
+  .lb-date { margin-left: auto; color: var(--subtext); font-size: var(--fs-aux); white-space: nowrap; }
+  .lb-empty { color: var(--subtext); padding: 16px; text-align: center; font-size: var(--fs-aux); }
+
+  .hint { color: var(--subtext); font-size: var(--fs-aux); line-height: 1.8; }
+
+  /* 倒计时数字 */
+  #countdown-num {
+    font-size: 88px;
+    font-weight: 900;
+    color: var(--accent);
+    text-shadow: 0 0 30px var(--accent);
+    animation: countPulse .8s ease-in-out infinite;
+  }
+  @keyframes countPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.15); opacity: .7; }
+  }
+
+  /* 游戏结束数值 */
+  .go-stats { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 280px; }
+  .go-stat {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+  }
+  .go-stat .label { color: var(--subtext); font-size: var(--fs-body); }
+  .go-stat .value { color: var(--accent); font-weight: 700; font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
+  .record-badge {
+    display: none;
+    color: #fbbf24;
+    font-weight: 700;
+    font-size: var(--fs-body);
+    letter-spacing: 2px;
+    text-shadow: 0 0 12px #fbbf24;
+  }
+  .record-badge.show { display: block; animation: countPulse 1s ease-in-out infinite; }
+  .gameover-title { font-size: var(--fs-title); font-weight: 700; letter-spacing: 1px; color: var(--text); }
+
+  /* ---------- 虚拟方向键 ---------- */
+  #touch-controls { display: none; }
+  body.touch #touch-controls {
+    display: grid;
+    grid-template-areas: ". up ." "left down right";
+    gap: 8px;
+    justify-items: center;
+    flex: 0 0 auto;
+  }
+  .dpad-btn {
+    width: 58px; height: 58px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--accent);
+    font-size: 22px;
+    cursor: pointer;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .dpad-btn:active { background: rgba(34, 211, 238, 0.25); }
+  .dpad-up { grid-area: up; }
+  .dpad-down { grid-area: down; }
+  .dpad-left { grid-area: left; }
+  .dpad-right { grid-area: right; }
+
+  /* 虚拟方向键上方的说明文字 */
+  #touch-hint {
+    display: none;
+    flex: 0 0 auto;
+    font-size: var(--fs-aux);
+    color: var(--subtext);
+    text-align: center;
+  }
+  body.touch #touch-hint { display: block; }
+
+  /* ---------- 响应式断点 ---------- */
+  @media (max-width: 768px) {
+    .lb-date { display: none; }   /* 移动端精简：隐藏日期列 */
+  }
+  @media (max-width: 360px) {
+    #touch-hint { display: none !important; } /* 超小屏隐藏方向键上方说明 */
+  }
+
+  /* ---------- 横屏提示（全屏覆盖） ---------- */
+  #orientation-hint {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(10, 10, 10, 0.97);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    text-align: center;
+    padding: 24px;
+  }
+  #orientation-hint.hidden { display: none; }
+  .oh-icon { font-size: 64px; animation: ohSpin 2s ease-in-out infinite; }
+  @keyframes ohSpin {
+    0%, 20% { transform: rotate(0deg); }
+    60%, 100% { transform: rotate(90deg); }
+  }
+  .oh-text { font-size: 18px; line-height: 1.8; color: var(--text); }
+
+  /* 窄屏紧凑 HUD；横屏将控制区放到棋盘右侧。 */
+  #app { gap: 12px; max-height: 100%; }
+  #hud .stats { flex: 1; min-width: 0; gap: 6px; }
+  .stat { min-width: 0; flex: 1; padding: 6px 8px; }
+  #hud { gap: 8px; }
+  .overlay { line-height: 1.5; }
+  .overlay > * { flex-shrink: 0; }
+  #combo-badge, #ghost-badge { line-height: 1.4; white-space: nowrap; }
+  #ghost-badge.ending { animation: countPulse .35s ease-in-out infinite; color: #fbbf24; }
+  #touch-hint { line-height: 1.4; }
+  @media (max-width: 380px) {
+    .stat .label { letter-spacing: 0; font-size: 12px; }
+    .stat .value { font-size: 17px; }
+    .stat { padding: 6px 4px; }
+    #hud > div:last-child { gap: 4px !important; }
+    .overlay { padding: 16px; gap: 12px; }
+  }
+  @media (orientation: landscape) and (max-height: 600px) {
+    body.touch #app { display: grid; grid-template-columns: auto 190px; justify-content: center; max-width: none; }
+    body.touch #hud { grid-column: 1 / -1; }
+    body.touch #board-wrap { grid-column: 1; grid-row: 2 / 4; }
+    body.touch #touch-hint { grid-column: 2; grid-row: 2; align-self: end; }
+    body.touch #touch-controls { grid-column: 2; grid-row: 3; align-self: start; }
+    body.touch .overlay { padding: 12px; gap: 10px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 顶部 HUD -->
+  <header id="hud">
+    <div class="stats">
+      <div class="stat"><div class="label">分数</div><div class="value" id="score">0</div></div>
+      <div class="stat"><div class="label">最高分</div><div class="value" id="highscore">0</div></div>
+      <div class="stat"><div class="label">难度</div><div class="value" id="difficulty">普通</div></div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="icon-btn" id="btn-pause" title="暂停 / 继续 (空格)">⏸</button>
+      <button class="icon-btn" id="btn-mute" title="声音开关">🔊</button>
+    </div>
+  </header>
+
+  <!-- 棋盘 + 覆盖层 -->
+  <div id="board-wrap">
+    <canvas id="game"></canvas>
+    <div id="combo-badge" class="hidden">🔥 x1</div>
+    <div id="ghost-badge" class="hidden">👻 幽灵</div>
+
+    <!-- 开始菜单 -->
+    <div class="overlay" id="overlay-menu">
+      <div class="title">🐍 贪吃蛇</div>
+      <div class="subtitle">经典重现 · 霓虹夜行</div>
+
+      <div class="section-label">难度</div>
+      <div class="btn-group" id="diff-group">
+        <button class="btn diff-btn" data-diff="easy">简单 · 穿墙</button>
+        <button class="btn diff-btn active" data-diff="normal">普通 · 标准</button>
+        <button class="btn diff-btn" data-diff="hard">困难 · 障碍</button>
+      </div>
+
+      <div class="section-label">皮肤</div>
+      <div class="btn-group" id="theme-group">
+        <button class="btn theme-btn active" data-theme="neon">霓虹</button>
+        <button class="btn theme-btn" data-theme="pixel">像素</button>
+        <button class="btn theme-btn" data-theme="forest">森林</button>
+      </div>
+
+      <button class="btn primary" id="btn-start">开始游戏</button>
+
+      <div class="leaderboard">
+        <div class="lb-title">🏆 最近战绩</div>
+        <div class="lb-list" id="lb-list"><div class="lb-empty">暂无记录</div></div>
+      </div>
+
+      <div class="hint">方向键 / WASD 移动 · 空格 暂停<br>每吃 5 个食物触发 3 秒幽灵模式 👻</div>
+    </div>
+
+    <!-- 倒计时 -->
+    <div class="overlay hidden" id="overlay-countdown">
+      <div id="countdown-num">3</div>
+      <div class="subtitle">准备…</div>
+    </div>
+
+    <!-- 暂停 -->
+    <div class="overlay hidden" id="overlay-pause">
+      <div class="gameover-title">已暂停</div>
+      <div class="subtitle">按 空格 或点击按钮继续</div>
+      <div class="btn-group">
+        <button class="btn primary" id="btn-resume">继续</button>
+        <button class="btn" id="btn-restart-from-pause">重新开始</button>
+        <button class="btn" id="btn-menu-from-pause">返回菜单</button>
+      </div>
+    </div>
+
+    <!-- 游戏结束 -->
+    <div class="overlay hidden" id="overlay-gameover">
+      <div class="gameover-title" id="result-title">游戏结束</div>
+      <div class="subtitle" id="result-reason"></div>
+      <div class="record-badge" id="record-badge">✨ 新纪录！</div>
+      <div class="go-stats">
+        <div class="go-stat"><span class="label">本局得分</span><span class="value" id="go-score">0</span></div>
+        <div class="go-stat"><span class="label">最高分</span><span class="value" id="go-high">0</span></div>
+        <div class="go-stat"><span class="label">存活时间</span><span class="value" id="go-time">00:00</span></div>
+      </div>
+      <div class="btn-group">
+        <button class="btn primary" id="btn-again">再来一局</button>
+        <button class="btn" id="btn-menu">返回菜单</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 虚拟方向键上方的说明文字 -->
+  <div id="touch-hint">滑动棋盘或点击方向键转向</div>
+
+  <!-- 虚拟方向键 -->
+  <div id="touch-controls">
+    <button class="dpad-btn dpad-up" data-dir="up">▲</button>
+    <button class="dpad-btn dpad-left" data-dir="left">◀</button>
+    <button class="dpad-btn dpad-down" data-dir="down">▼</button>
+    <button class="dpad-btn dpad-right" data-dir="right">▶</button>
+  </div>
+</div>
+
+<!-- 横屏提示 -->
+<div id="orientation-hint" class="hidden">
+  <div class="oh-icon">📱</div>
+  <div class="oh-text">请将手机旋转为<b>横屏</b>游玩<br>体验更佳</div>
+  <button class="btn primary" id="oh-dismiss">继续竖屏</button>
+</div>
+
+<script>
+'use strict';
+
+/* ============================================================
+ * 集中配置：所有可调参数集中在此管理，方便后续扩展
+ * ============================================================ */
+const CONFIG = {
+  grid: 20,                       // 网格 20 × 20
+  canvas: { min: 300, max: 600, floor: 200 }, // 画布尺寸范围（floor 为极端小屏下限）
+  // 各难度：每秒移动步数 / 障碍物数量 / 是否可穿墙
+  speeds:    { easy: 6,  normal: 10, hard: 15 },
+  obstacles: { easy: 0,  normal: 0,  hard: 8  },
+  wallPass:  { easy: true, normal: false, hard: false },
+  scoring: {
+    normal: 10,                   // 普通食物基础分
+    special: 30,                  // 特殊食物基础分
+    comboBonus: 10,               // 每连击额外 = comboBonus × 连击数
+    comboMax: 5,                  // 连击倍率上限
+    comboWindowMs: 10000          // 连击判定窗口 10 秒
+  },
+  specialFood: {
+    every: 5,                     // 每吃满 N 个普通食物触发一次特殊食物
+    lifetime: 8000                // 特殊食物存在时长 8 秒
+  },
+  ghost: {
+    every: 5,                     // 每吃 N 个食物（含特殊）触发一次幽灵模式
+    durationMs: 3000              // 幽灵模式持续 3 秒
+  },
+  particles: { max: 120 },        // 粒子数量上限（对象池固定容量）
+  countdownMs: 3000               // 开局倒计时 3 秒
+};
+
+/* ============================================================
+ * 三套皮肤主题
+ * ============================================================ */
+const THEMES = {
+  neon: {
+    name: '霓虹', bg: '#0b1020', grid: 'rgba(96, 165, 250, 0.07)', accent: '#22d3ee',
+    snake: { head: '#22d3ee', mid: '#06b6d4', tail: '#0e7490', eye: '#0f172a', eyeWhite: '#ffffff' },
+    food: '#fb7185', special: '#fbbf24', obstacle: '#334155', pixelStyle: false
+  },
+  pixel: {
+    name: '像素', bg: '#1a1a2e', grid: 'rgba(255, 255, 255, 0.05)', accent: '#ff6b6b',
+    snake: { head: '#ffd166', mid: '#f4a261', tail: '#e76f51', eye: '#22223b', eyeWhite: '#ffffff' },
+    food: '#ef476f', special: '#06d6a0', obstacle: '#3d3d5c', pixelStyle: true
+  },
+  forest: {
+    name: '森林', bg: '#0f1f14', grid: 'rgba(74, 222, 128, 0.07)', accent: '#4ade80',
+    snake: { head: '#a3e635', mid: '#4ade80', tail: '#15803d', eye: '#052e16', eyeWhite: '#ffffff' },
+    food: '#fb7185', special: '#facc15', obstacle: '#3f3f2a', pixelStyle: false
+  }
+};
+
+const DIFF_NAMES = { easy: '简单', normal: '普通', hard: '困难' };
+const DIFF_CLASSES = { easy: 'diff-easy', normal: 'diff-normal', hard: 'diff-hard' };
+const DIRECTIONS = {
+  up:    { x: 0, y: -1 },
+  down:  { x: 0, y: 1 },
+  left:  { x: -1, y: 0 },
+  right: { x: 1, y: 0 }
+};
+
+/* ============================================================
+ * 本地持久化：最高分 / 最近 5 局排行榜 / 皮肤选择
+ * ============================================================ */
+const Storage = {
+  KEY_HIGH: 'snake_highscore', KEY_LB: 'snake_leaderboard', KEY_THEME: 'snake_theme',
+  highscore: 0, leaderboard: [], theme: 'neon',
+  load() {
+    this.highscore = this._get(this.KEY_HIGH, 0);
+    this.leaderboard = this._get(this.KEY_LB, []);
+    if (!Array.isArray(this.leaderboard)) this.leaderboard = [];
+    this.leaderboard = this.leaderboard.filter(e => e && Number.isFinite(e.score) && Number.isFinite(e.time) && DIFF_NAMES[e.difficulty]);
+    this.highscores = this._get('snake_highscores_by_difficulty', {});
+    if (!this.highscores || typeof this.highscores !== 'object' || Array.isArray(this.highscores)) this.highscores = {};
+    for (const e of this.leaderboard) this.highscores[e.difficulty] = Math.max(this.best(e.difficulty), e.score);
+    this.theme = this._get(this.KEY_THEME, 'neon');
+  },
+  best(difficulty) { const n = this.highscores?.[difficulty]; return Number.isFinite(n) && n >= 0 ? n : 0; },
+  saveScore(score, time, difficulty) {
+    this.highscores[difficulty] = Math.max(this.best(difficulty), score);
+    this._set('snake_highscores_by_difficulty', this.highscores);
+    if (score > this.highscore) { this.highscore = score; this._set(this.KEY_HIGH, score); }
+    this.leaderboard.unshift({ score, time: Math.round(time), difficulty, date: Date.now() });
+    this.leaderboard = this.leaderboard.slice(0, 5);
+    this._set(this.KEY_LB, this.leaderboard);
+  },
+  saveTheme(name) { this.theme = name; this._set(this.KEY_THEME, name); },
+  _get(key, def) {
+    try { const v = localStorage.getItem(key); return v === null ? def : JSON.parse(v); }
+    catch (e) { return def; }
+  },
+  _set(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
+};
+
+/* ============================================================
+ * 工具函数
+ * ============================================================ */
+function hexToRgb(hex) {
+  let h = hex.replace('#', '');
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  const n = parseInt(h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function mixColor(c1, c2, t) {
+  const a = hexToRgb(c1), b = hexToRgb(c2);
+  return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`;
+}
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function formatTime(s) {
+  s = Math.max(0, Math.floor(s));
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+function formatDate(ts) {
+  const d = new Date(ts);
+  return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function starPath(ctx, cx, cy, outer, inner, points) {
+  ctx.beginPath();
+  for (let i = 0; i < points * 2; i++) {
+    const r = (i % 2 === 0) ? outer : inner;
+    const a = -Math.PI / 2 + (i * Math.PI) / points;
+    if (i === 0) ctx.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    else ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+  }
+  ctx.closePath();
+}
+
+/* ============================================================
+ * 音效系统（Web Audio API，无外部资源）
+ * ============================================================ */
+class AudioManager {
+  constructor() { this.ctx = null; this.enabled = true; }
+  ensure() {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!this.ctx && AC) this.ctx = new AC();
+      if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    } catch (e) {}
+  }
+  _beep(freq, dur, type, vol, endFreq) {
+    if (!this.ctx || !this.enabled) return;
+    const t0 = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, t0 + dur);
+    gain.gain.setValueAtTime(vol, t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.start(t0); osc.stop(t0 + dur);
+  }
+  move()    { this._beep(150, 0.05, 'square', 0.025); }
+  eat(combo){ const base = 440 + Math.min(combo || 1, 5) * 60;
+              this._beep(base, 0.09, 'sine', 0.12);
+              this._beep(base * 1.5, 0.12, 'sine', 0.1); }
+  special() { this._beep(660, 0.08, 'sine', 0.12);
+              setTimeout(() => this._beep(880, 0.08, 'sine', 0.12), 80);
+              setTimeout(() => this._beep(1320, 0.14, 'sine', 0.1), 160); }
+  ghost()   { this._beep(200, 0.28, 'sine', 0.12, 620); }
+  death()   { this._beep(320, 0.45, 'sawtooth', 0.15, 60); }
+  click()   { this._beep(500, 0.05, 'square', 0.05); }
+}
+
+/* ============================================================
+ * 粒子系统：固定容量对象池，避免内存泄漏与数量失控
+ * ============================================================ */
+class ParticleSystem {
+  constructor(max) {
+    this.max = max;
+    this.pool = [];
+    for (let i = 0; i < max; i++)
+      this.pool.push({ active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 3, color: '#fff' });
+  }
+  burst(x, y, color, count) {
+    let spawned = 0;
+    for (const p of this.pool) {
+      if (spawned >= count) break;
+      if (p.active) continue;
+      const a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 160;
+      p.active = true; p.x = x; p.y = y;
+      p.vx = Math.cos(a) * sp; p.vy = Math.sin(a) * sp;
+      p.maxLife = 400 + Math.random() * 400; p.life = p.maxLife;
+      p.size = 2 + Math.random() * 4; p.color = color;
+      spawned++;
+    }
+  }
+  update(dt) {
+    for (const p of this.pool) {
+      if (!p.active) continue;
+      p.life -= dt;
+      if (p.life <= 0) { p.active = false; continue; }
+      p.x += (p.vx * dt) / 1000;
+      p.y += (p.vy * dt) / 1000;
+      p.vy += (400 * dt) / 1000;
+      p.vx *= 0.98; p.vy *= 0.98;
+    }
+  }
+  draw(ctx) {
+    for (const p of this.pool) {
+      if (!p.active) continue;
+      ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 1);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
+  }
+  clear() { for (const p of this.pool) p.active = false; }
+}
+
+/* ============================================================
+ * Snake 类：蛇的逻辑（方向队列、移动、增长、碰撞检测）
+ * ============================================================ */
+class Snake {
+  constructor() {
+    const c = Math.floor(CONFIG.grid / 2);
+    this.body = [{ x: c, y: c }, { x: c - 1, y: c }, { x: c - 2, y: c }]; // body[0] 为蛇头
+    this.direction = DIRECTIONS.right;
+    this.dirQueue = [];     // 方向输入队列（最多 2 个，用于平滑转弯）
+    this.pendingGrowth = 0; // 待增长节数
+  }
+
+  /** 入队方向：入队时做一次反向校验（最终防线在 _applyNextDirection） */
+  queueDirection(d) {
+    const last = this.dirQueue.length ? this.dirQueue[this.dirQueue.length - 1] : this.direction;
+    if ((d.x === -last.x && d.y === -last.y) || (d.x === last.x && d.y === last.y)) return;
+    if (this.dirQueue.length < 2) this.dirQueue.push(d);
+  }
+
+  /** 应用下一个方向：应用前再次校验，彻底杜绝快速按键导致的反向移动 */
+  _applyNextDirection() {
+    while (this.dirQueue.length) {
+      const d = this.dirQueue[0];
+      // 丢弃与当前方向相同或相反的方向，只取第一个合法（垂直）方向
+      if (d.x === this.direction.x && d.y === this.direction.y) { this.dirQueue.shift(); continue; }
+      if (d.x === -this.direction.x && d.y === -this.direction.y) { this.dirQueue.shift(); continue; }
+      this.direction = this.dirQueue.shift();
+      break;
+    }
+  }
+
+  /**
+   * 前进一步。参数：
+   * @param {Array} obstacles 障碍物坐标数组
+   * @param {boolean} wrap 是否可穿墙（环绕）
+   * @param {boolean} ghost 幽灵模式（无敌，忽略自撞/障碍/墙壁死亡）
+   * @param {Food} food 食物对象（用于判定是否吃到）
+   * @returns {string} 'moved' | 'wall' | 'self' | 'obstacle' | 'food' | 'special'
+   */
+  move(obstacles, wrap, ghost, food) {
+    this._applyNextDirection();
+    const g = CONFIG.grid;
+    let nx = this.body[0].x + this.direction.x;
+    let ny = this.body[0].y + this.direction.y;
+
+    if (wrap || ghost) {
+      nx = (nx + g) % g;
+      ny = (ny + g) % g;
+    } else if (nx < 0 || nx >= g || ny < 0 || ny >= g) {
+      return 'wall';
+    }
+
+    if (!ghost) {
+      // 若本步不增长，尾部将移走，因此撞尾格不算自撞
+      const willGrow = this.pendingGrowth > 0;
+      const checkBody = willGrow ? this.body : this.body.slice(0, -1);
+      for (const s of checkBody) if (s.x === nx && s.y === ny) return 'self';
+      for (const o of obstacles) if (o.x === nx && o.y === ny) return 'obstacle';
+    }
+
+    this.body.unshift({ x: nx, y: ny });
+    if (this.pendingGrowth > 0) this.pendingGrowth--;
+    else this.body.pop();
+
+    // 判定是否吃到食物（食物仍在原坐标，由 Game 随后处理移除/再生）
+    if (food.food && nx === food.food.x && ny === food.food.y) return 'food';
+    if (food.special && nx === food.special.x && ny === food.special.y) return 'special';
+    return 'moved';
+  }
+}
+
+/* ============================================================
+ * Food 类：食物生成（普通食物 + 特殊食物）
+ * ============================================================ */
+class Food {
+  constructor() {
+    this.food = null;            // 普通食物坐标
+    this.special = null;         // 特殊食物坐标
+    this.specialRemaining = 0;   // 特殊食物剩余存在时间（dt 递减，暂停时冻结）
+    this.foodsEaten = 0;         // 已吃普通食物数（用于触发特殊食物）
+  }
+  reset() { this.food = null; this.special = null; this.specialRemaining = 0; this.foodsEaten = 0; }
+
+  /** 生成占位集合：障碍物 + 已有食物 + 蛇身 */
+  _occupied(snake, obstacles) {
+    const set = new Set();
+    for (const o of obstacles) set.add(o.x + ',' + o.y);
+    if (this.food) set.add(this.food.x + ',' + this.food.y);
+    if (this.special) set.add(this.special.x + ',' + this.special.y);
+    for (const s of snake.body) set.add(s.x + ',' + s.y);
+    return set;
+  }
+  /** 随机取一个空单元格 */
+  _freeCell(snake, obstacles) {
+    const occ = this._occupied(snake, obstacles);
+    const free = [];
+    for (let x = 0; x < CONFIG.grid; x++)
+      for (let y = 0; y < CONFIG.grid; y++)
+        if (!occ.has(x + ',' + y)) free.push({ x, y });
+    if (!free.length) return null;
+    return free[Math.floor(Math.random() * free.length)];
+  }
+  generate(snake, obstacles) {
+    const c = this._freeCell(snake, obstacles);
+    if (c) this.food = c;
+  }
+  spawnSpecial(snake, obstacles) {
+    const c = this._freeCell(snake, obstacles);
+    if (c) { this.special = c; this.specialRemaining = CONFIG.specialFood.lifetime; }
+  }
+  /** 每帧调用（仅游戏进行时），处理特殊食物过期 */
+  update(dt) {
+    if (this.special) {
+      this.specialRemaining -= dt;
+      if (this.specialRemaining <= 0) this.special = null;
+    }
+  }
+  onNormalEaten(snake, obstacles) {
+    this.food = null;
+    this.foodsEaten++;
+    this.generate(snake, obstacles);
+    if (this.foodsEaten % CONFIG.specialFood.every === 0) this.spawnSpecial(snake, obstacles);
+  }
+  onSpecialEaten() { this.special = null; this.specialRemaining = 0; }
+}
+
+/* ============================================================
+ * Renderer 类：绘制与特效（背景、网格、蛇、食物、粒子）
+ * ============================================================ */
+class Renderer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.cellSize = 15;
+    this.boardSize = 300;
+    this.particles = new ParticleSystem(CONFIG.particles.max);
+  }
+  /** 设置画布尺寸与 DPR 缩放 */
+  resize(cellSize, boardSize, dpr) {
+    this.cellSize = cellSize;
+    this.boardSize = boardSize;
+    this.canvas.style.width = boardSize + 'px';
+    this.canvas.style.height = boardSize + 'px';
+    this.canvas.width = boardSize * dpr;
+    this.canvas.height = boardSize * dpr;
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  /** 生成粒子 */
+  burst(x, y, color, count) { this.particles.burst(x, y, color, count); }
+  updateParticles(dt) { this.particles.update(dt); }
+  clearParticles() { this.particles.clear(); }
+
+  /**
+   * 主渲染入口
+   * @param {number} now 时间戳（用于动画）
+   * @param {object} view 视图数据：{ theme, snake, food, obstacles, ghostActive }
+   */
+  render(now, view) {
+    const { theme, snake, food, obstacles, ghostActive } = view;
+    const ctx = this.ctx, cell = this.cellSize, size = this.boardSize;
+
+    // 背景 + 暗角
+    ctx.fillStyle = theme.bg;
+    ctx.fillRect(0, 0, size, size);
+    const g = ctx.createRadialGradient(size / 2, size / 2, size * 0.1, size / 2, size / 2, size * 0.75);
+    g.addColorStop(0, 'rgba(255,255,255,0.03)');
+    g.addColorStop(1, 'rgba(0,0,0,0.25)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+
+    // 网格
+    ctx.strokeStyle = theme.grid;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 1; i < CONFIG.grid; i++) {
+      ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, size);
+      ctx.moveTo(0, i * cell); ctx.lineTo(size, i * cell);
+    }
+    ctx.stroke();
+
+    this._drawObstacles(obstacles, cell, theme);
+    this._drawFood(now, food, cell, theme);
+    this._drawSpecial(now, food, cell, theme);
+    this._drawSnake(snake, cell, theme, ghostActive);
+
+    // 幽灵模式边缘光晕
+    if (ghostActive) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(192, 132, 252, ' + (0.5 + Math.sin(now / 120) * 0.3) + ')';
+      ctx.lineWidth = 4;
+      ctx.shadowColor = '#c084fc';
+      ctx.shadowBlur = 18;
+      roundRect(ctx, 2, 2, size - 4, size - 4, 14);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    this.particles.draw(ctx);
+  }
+
+  _drawObstacles(obstacles, cell, theme) {
+    for (const o of obstacles) {
+      roundRect(this.ctx, o.x * cell + 2, o.y * cell + 2, cell - 4, cell - 4, cell * 0.15);
+      this.ctx.fillStyle = theme.obstacle;
+      this.ctx.fill();
+    }
+    this.ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    for (const o of obstacles)
+      this.ctx.fillRect(o.x * cell + cell * 0.22, o.y * cell + cell * 0.18, cell * 0.22, cell * 0.14);
+  }
+
+  _drawFood(now, food, cell, theme) {
+    const f = food.food;
+    if (!f) return;
+    const ctx = this.ctx;
+    const cx = f.x * cell + cell / 2, cy = f.y * cell + cell / 2;
+    const pulse = 1 + Math.sin(now / 180) * 0.15;
+    const r = cell * 0.34 * pulse;
+    ctx.save();
+    ctx.shadowColor = theme.food; ctx.shadowBlur = 16;
+    ctx.fillStyle = theme.food;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.arc(cx - r * 0.25, cy - r * 0.3, r * 0.28, 0, Math.PI * 2); ctx.fill();
+  }
+
+  _drawSpecial(now, food, cell, theme) {
+    const s = food.special;
+    if (!s) return;
+    const ctx = this.ctx;
+    const cx = s.x * cell + cell / 2, cy = s.y * cell + cell / 2;
+    const pulse = 1 + Math.sin(now / 150) * 0.2;
+    const outer = cell * 0.42 * pulse, inner = outer * 0.45;
+    ctx.save();
+    ctx.shadowColor = theme.special; ctx.shadowBlur = 20;
+    ctx.fillStyle = theme.special;
+    starPath(ctx, cx, cy, outer, inner, 5);
+    ctx.fill();
+    ctx.restore();
+    const remain = clamp(food.specialRemaining / CONFIG.specialFood.lifetime, 0, 1);
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, cell * 0.46, -Math.PI / 2, -Math.PI / 2 + remain * Math.PI * 2);
+    ctx.stroke();
+  }
+
+  _bodyColor(i, len, theme) {
+    const p = len > 1 ? i / (len - 1) : 0;
+    if (p < 0.5) return mixColor(theme.snake.head, theme.snake.mid, p * 2);
+    return mixColor(theme.snake.mid, theme.snake.tail, (p - 0.5) * 2);
+  }
+
+  _drawSnake(snake, cell, theme, ghostActive) {
+    const ctx = this.ctx;
+    const body = snake.body, len = body.length;
+
+    // 幽灵模式：蛇身半透明（体现"穿行"感）
+    if (ghostActive) ctx.globalAlpha = 0.6;
+    ctx.save();
+    if (!theme.pixelStyle) { ctx.shadowColor = ghostActive ? '#c084fc' : theme.accent; ctx.shadowBlur = 12; }
+
+    for (let i = len - 1; i >= 1; i--) {
+      const seg = body[i], x = seg.x * cell, y = seg.y * cell;
+      if (theme.pixelStyle) {
+        ctx.fillStyle = this._bodyColor(i, len, theme);
+        ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2);
+      } else {
+        const inset = 1.5;
+        roundRect(ctx, x + inset, y + inset, cell - inset * 2, cell - inset * 2, cell * 0.28);
+        ctx.fillStyle = this._bodyColor(i, len, theme);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+    this._drawHead(snake, cell, theme);
+    if (ghostActive) ctx.globalAlpha = 1;
+  }
+
+  _drawHead(snake, cell, theme) {
+    const ctx = this.ctx;
+    const head = snake.body[0], dir = snake.direction;
+    const x = head.x * cell, y = head.y * cell;
+    const cx = x + cell / 2, cy = y + cell / 2;
+
+    ctx.save();
+    ctx.shadowColor = theme.accent; ctx.shadowBlur = 14;
+    if (theme.pixelStyle) {
+      ctx.fillStyle = theme.snake.head; ctx.fillRect(x, y, cell, cell);
+    } else {
+      roundRect(ctx, x, y, cell, cell, cell * 0.32);
+      ctx.fillStyle = theme.snake.head; ctx.fill();
+    }
+    ctx.restore();
+
+    // 眼睛随方向转动
+    const px = -dir.y, py = dir.x;
+    const eo = cell * 0.24, fo = cell * 0.16, er = cell * 0.13, pupilR = er * 0.55;
+    for (const sgn of [-1, 1]) {
+      const ex = cx + px * eo * sgn + dir.x * fo;
+      const ey = cy + py * eo * sgn + dir.y * fo;
+      ctx.fillStyle = theme.snake.eyeWhite;
+      ctx.beginPath(); ctx.arc(ex, ey, er, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = theme.snake.eye;
+      ctx.beginPath(); ctx.arc(ex + dir.x * pupilR * 0.6, ey + dir.y * pupilR * 0.6, pupilR, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+/* ============================================================
+ * InputHandler 类：输入处理（键盘 / 触屏滑动 / 虚拟方向键长按）
+ * ============================================================ */
+class InputHandler {
+  constructor(game) { this.game = game; }
+
+  bind() {
+    // 键盘
+    window.addEventListener('keydown', (e) => this._onKey(e));
+
+    // 菜单按钮
+    document.getElementById('btn-start').addEventListener('click', () => this.game.startGame(this.game.difficulty));
+    document.querySelectorAll('.diff-btn').forEach(b =>
+      b.addEventListener('click', () => this.game.setDifficulty(b.dataset.diff)));
+    document.querySelectorAll('.theme-btn').forEach(b =>
+      b.addEventListener('click', () => this.game.setTheme(b.dataset.theme)));
+
+    // 暂停 / 结束按钮
+    document.getElementById('btn-pause').addEventListener('click', () => { this.game.ensureAudio(); this.game.togglePause(); });
+    document.getElementById('btn-resume').addEventListener('click', () => this.game.togglePause());
+    document.getElementById('btn-restart-from-pause').addEventListener('click', () => this.game.startGame(this.game.difficulty));
+    document.getElementById('btn-menu-from-pause').addEventListener('click', () => this.game.backToMenu());
+    document.getElementById('btn-again').addEventListener('click', () => this.game.startGame(this.game.difficulty));
+    document.getElementById('btn-menu').addEventListener('click', () => this.game.backToMenu());
+
+    // 声音开关
+    document.getElementById('btn-mute').addEventListener('click', () => this.game.toggleMute());
+
+    // 虚拟方向键（长按连续）
+    this._bindDpad();
+
+    // 触屏滑动转向
+    this._bindSwipe();
+
+    // 游戏进行时阻止页面默认滚动
+    document.addEventListener('touchmove', (e) => {
+      const s = this.game.state;
+      if (s === 'playing' && e.target === this.game.canvas) e.preventDefault();
+    }, { passive: false });
+  }
+
+  /** 虚拟方向键：pointerdown 立即转向，长按期间定时重复发送方向（连续移动） */
+  _bindDpad() {
+    document.querySelectorAll('.dpad-btn').forEach(btn => {
+      const dir = btn.dataset.dir;
+      let timer = null;
+      const start = (e) => {
+        e.preventDefault();
+        this.game.ensureAudio();
+        this.game.requestDirection(dir);
+        if (timer) clearInterval(timer);
+        timer = setInterval(() => this.game.requestDirection(dir), 120);
+      };
+      const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+      btn.addEventListener('pointerdown', start);
+      btn.addEventListener('pointerup', stop);
+      btn.addEventListener('pointerleave', stop);
+      btn.addEventListener('pointercancel', stop);
+      btn.addEventListener('contextmenu', (e) => e.preventDefault());
+    });
+  }
+
+  /** 触屏滑动：位移超过阈值则按主方向转向 */
+  _bindSwipe() {
+    const wrap = document.getElementById('board-wrap');
+    let tsx = 0, tsy = 0;
+    wrap.addEventListener('touchstart', (e) => {
+      this.game.ensureAudio();
+      tsx = e.touches[0].clientX; tsy = e.touches[0].clientY;
+    }, { passive: true });
+    wrap.addEventListener('touchmove', (e) => {
+      if (this.game.state !== 'playing') return;
+      const dx = e.touches[0].clientX - tsx;
+      const dy = e.touches[0].clientY - tsy;
+      const threshold = 24;
+      if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
+      if (Math.abs(dx) > Math.abs(dy)) this.game.requestDirection(dx > 0 ? 'right' : 'left');
+      else this.game.requestDirection(dy > 0 ? 'down' : 'up');
+      tsx = e.touches[0].clientX; tsy = e.touches[0].clientY;
+    }, { passive: true });
+  }
+
+  _onKey(e) {
+    if (e.repeat && [' ', 'Spacebar', 'Escape', 'Enter'].includes(e.key)) { e.preventDefault(); return; }
+    const dirMap = {
+      ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+      w: 'up', W: 'up', s: 'down', S: 'down', a: 'left', A: 'left', d: 'right', D: 'right'
+    };
+    if (e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault();
+      if (this.game.state === 'playing' || this.game.state === 'paused') { this.game.ensureAudio(); this.game.togglePause(); }
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (this.game.state === 'menu' || this.game.state === 'gameover') this.game.startGame(this.game.difficulty);
+      return;
+    }
+    if (e.key === 'Escape') {
+      if (this.game.state === 'playing' || this.game.state === 'paused') this.game.togglePause();
+      return;
+    }
+    if (dirMap[e.key]) { e.preventDefault(); this.game.ensureAudio(); this.game.requestDirection(dirMap[e.key]); }
+  }
+}
+
+/* ============================================================
+ * Game 类：主循环、状态管理、计分/连击/幽灵、主题、UI
+ * ============================================================ */
+class Game {
+  constructor() {
+    Storage.load();
+    this.isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    if (this.isTouch) document.body.classList.add('touch');
+
+    this.canvas = document.getElementById('game');
+    this.renderer = new Renderer(this.canvas);
+    this.input = new InputHandler(this);
+
+    // DOM 缓存
+    this.el = {
+      hud: document.getElementById('hud'),
+      controls: document.getElementById('touch-controls'),
+      boardWrap: document.getElementById('board-wrap'),
+      score: document.getElementById('score'),
+      highscore: document.getElementById('highscore'),
+      difficulty: document.getElementById('difficulty'),
+      comboBadge: document.getElementById('combo-badge'),
+      ghostBadge: document.getElementById('ghost-badge'),
+      menu: document.getElementById('overlay-menu'),
+      countdown: document.getElementById('overlay-countdown'),
+      countdownNum: document.getElementById('countdown-num'),
+      pause: document.getElementById('overlay-pause'),
+      gameover: document.getElementById('overlay-gameover'),
+      goScore: document.getElementById('go-score'),
+      goHigh: document.getElementById('go-high'),
+      goTime: document.getElementById('go-time'),
+      recordBadge: document.getElementById('record-badge'),
+      lbList: document.getElementById('lb-list'),
+      orientationHint: document.getElementById('orientation-hint')
+    };
+
+    // 状态
+    this.state = 'menu';            // menu | countdown | playing | paused | gameover
+    this.difficulty = 'normal';
+    this.score = 0;
+    this.highscore = Storage.best(this.difficulty);
+    this.elapsed = 0;
+    this.comboCount = 0;
+    this.comboRemaining = 0;        // 连击剩余窗口（dt 递减，暂停冻结）
+    this.ghostRemaining = 0;        // 幽灵模式剩余时间
+    this.ghostActive = false;
+    this.foodsTotal = 0;            // 本局累计吃食物数（触发幽灵模式）
+    this.accumulator = 0;
+    this.lastFrame = performance.now();
+    this.startTime = 0;
+    this.orientationDismissed = false;
+
+    this.snake = new Snake();
+    this.food = new Food();
+    this.obstacles = [];
+    this.audio = new AudioManager();
+
+    this.setTheme(Storage.theme);
+    this.resize();
+    this.input.bind();
+    // 手机竖屏可直接游玩，不用遮罩强制旋转。
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.suspend(); });
+    window.addEventListener('blur', () => this.suspend());
+    this.renderLeaderboard();
+    this.updateScoreUI();
+    this.updateHighscoreUI();
+    this.updateDifficultyUI();
+    this.updateComboBadge();
+    this.updateGhostBadge();
+
+    window.addEventListener('resize', () => this.resize());
+    window.addEventListener('load', () => this.resize());
+
+    requestAnimationFrame(this.loop);
+  }
+
+  /* ---------- 主循环 ---------- */
+  loop = (now) => {
+    const dt = Math.min(Math.max(0, now - this.lastFrame), 100);
+    this.lastFrame = now;
+    this.update(dt, now);
+    this.render(now);
+    requestAnimationFrame(this.loop);
+  };
+
+  update(dt, now) {
+    // 倒计时
+    if (this.state === 'countdown') {
+      const elapsed = now - this.countdownStart;
+      this.el.countdownNum.textContent = String(Math.max(1, Math.ceil((CONFIG.countdownMs - elapsed) / 1000)));
+      if (elapsed >= CONFIG.countdownMs) {
+        this.state = 'playing';
+        this.startTime = now;
+        this.accumulator = 0;
+        this.el.countdown.classList.add('hidden');
+        return;
+      }
+    }
+
+    // 游戏进行中
+    if (this.state === 'playing') {
+      this.elapsed += dt / 1000;
+      // 连击窗口倒计时
+      if (this.comboCount > 0) {
+        this.comboRemaining -= dt;
+        if (this.comboRemaining <= 0) { this.comboCount = 0; this.updateComboBadge(); }
+      }
+      // 幽灵模式倒计时
+      if (this.ghostRemaining > 0) {
+        this.ghostRemaining -= dt;
+        if (this.ghostRemaining <= 0) this.ghostRemaining = 0;
+      }
+      this.ghostActive = this.ghostRemaining > 0;
+      this.updateGhostBadge();
+
+      this.food.update(dt); // 特殊食物过期
+
+      // 固定步长：按难度速度节流
+      this.accumulator += dt;
+      const interval = 1000 / CONFIG.speeds[this.difficulty];
+      while (this.accumulator >= interval) {
+        this.accumulator -= interval;
+        this.tick();
+        if (this.state !== 'playing') break;
+      }
+
+    }
+
+    this.renderer.updateParticles(dt);
+  }
+
+  /* ---------- 单步逻辑 ---------- */
+  tick() {
+    const wrap = CONFIG.wallPass[this.difficulty] || this.ghostActive;
+    const result = this.snake.move(this.obstacles, wrap, this.ghostActive, this.food);
+
+    if (result === 'wall' || result === 'self' || result === 'obstacle') { this.die(result); return; }
+
+    if (result === 'food') {
+      const f = this.food.food;
+      const fx = (f.x + 0.5) * this.renderer.cellSize, fy = (f.y + 0.5) * this.renderer.cellSize;
+      this.gainScore(CONFIG.scoring.normal);
+      this.snake.pendingGrowth += 1;
+      this.renderer.burst(fx, fy, this.theme.food, 16);
+      this.audio.eat(this.comboCount);
+      this.food.onNormalEaten(this.snake, this.obstacles);
+      this.onFoodEaten();
+      this.checkWin();
+    } else if (result === 'special') {
+      const f = this.food.special;
+      const fx = (f.x + 0.5) * this.renderer.cellSize, fy = (f.y + 0.5) * this.renderer.cellSize;
+      this.gainScore(CONFIG.scoring.special);
+      this.snake.pendingGrowth += 2;
+      this.renderer.burst(fx, fy, this.theme.special, 26);
+      this.audio.special();
+      this.food.onSpecialEaten();
+      this.onFoodEaten();
+      this.checkWin();
+    } else if (result === 'moved') {
+      // 移动保持安静，保留进食和结算音效。
+    }
+  }
+
+  /** 每吃一个食物调用：累计计数并触发幽灵模式 */
+  onFoodEaten() {
+    this.foodsTotal++;
+    if (this.foodsTotal % CONFIG.ghost.every === 0) this.triggerGhost();
+  }
+
+  triggerGhost() {
+    this.ghostRemaining = CONFIG.ghost.durationMs;
+    this.ghostActive = true;
+    this.updateGhostBadge();
+    this.audio.ghost();
+    const head = this.snake.body[0];
+    this.renderer.burst((head.x + 0.5) * this.renderer.cellSize, (head.y + 0.5) * this.renderer.cellSize, '#c084fc', 30);
+  }
+
+  gainScore(base) {
+    // 连击：窗口内连续吃食物递进，否则重置为 1
+    if (this.comboRemaining > 0 && this.comboCount > 0) {
+      this.comboCount = Math.min(this.comboCount + 1, CONFIG.scoring.comboMax);
+    } else {
+      this.comboCount = 1;
+    }
+    this.comboRemaining = CONFIG.scoring.comboWindowMs;
+    const bonus = CONFIG.scoring.comboBonus * this.comboCount;
+    this.score += base + bonus;
+    this.updateScoreUI();
+    if (bonus > 0) this.showComboPop(bonus);
+    this.updateComboBadge();
+    if (this.score > this.highscore) { this.highscore = this.score; this.updateHighscoreUI(); }
+  }
+
+  checkWin() {
+    const occupied = new Set([...this.snake.body, ...this.obstacles].map(p => `${p.x},${p.y}`));
+    if (occupied.size === CONFIG.grid * CONFIG.grid) this.die('win');
+  }
+
+  die(reason = 'self') {
+    this.state = 'gameover';
+    document.getElementById('result-title').textContent = reason === 'win' ? '🎉 棋盘已填满，通关！' : '游戏结束';
+    document.getElementById('result-reason').textContent = ({wall: '撞到墙壁了', self: '撞到自己了', obstacle: '撞到障碍物了', win: '所有可用格子都已占满'}[reason]);
+    const head = this.snake.body[0];
+    this.renderer.burst((head.x + 0.5) * this.renderer.cellSize, (head.y + 0.5) * this.renderer.cellSize, this.theme.snake.head, 26);
+    if (reason === 'win') this.audio.special(); else this.audio.death();
+
+    const prevHigh = Storage.best(this.difficulty); // 本局开始前已持久化的最高分
+    const isRecord = this.score > prevHigh && this.score > 0;
+    Storage.saveScore(this.score, this.elapsed, this.difficulty);
+    this.highscore = Storage.best(this.difficulty);
+    this.updateHighscoreUI();
+
+    this.el.goScore.textContent = this.score;
+    this.el.goHigh.textContent = this.highscore;
+    this.el.goTime.textContent = formatTime(this.elapsed);
+    this.el.recordBadge.classList.toggle('show', isRecord);
+    this.showOverlay('gameover');
+    this.renderLeaderboard();
+  }
+
+  /* ---------- 流程控制 ---------- */
+  startGame(difficulty) {
+    this.audio.ensure(); this.audio.click();
+    this.difficulty = difficulty;
+    this.updateDifficultyUI();
+    this.resetRun();
+    this.state = 'countdown';
+    this.countdownStart = performance.now();
+    this.el.countdownNum.textContent = '3';
+    this.showOverlay('countdown');
+  }
+
+  resetRun() {
+    this.snake = new Snake();
+    this.food = new Food();
+    this.obstacles = this._generateObstacles();
+    this.food.generate(this.snake, this.obstacles);
+    this.score = 0;
+    this.comboCount = 0;
+    this.comboRemaining = 0;
+    this.ghostRemaining = 0;
+    this.ghostActive = false;
+    this.foodsTotal = 0;
+    this.accumulator = 0;
+    this.elapsed = 0;
+    this.renderer.clearParticles();
+    this.updateScoreUI();
+    this.updateComboBadge();
+    this.updateGhostBadge();
+  }
+
+  _generateObstacles() {
+    const n = CONFIG.obstacles[this.difficulty] || 0;
+    const g = CONFIG.grid, c = Math.floor(g / 2);
+    const arr = [];
+    let tries = 0;
+    while (arr.length < n && tries < 2000) {
+      tries++;
+      const x = Math.floor(Math.random() * g), y = Math.floor(Math.random() * g);
+      if (Math.abs(x - c) <= 3 && Math.abs(y - c) <= 3) continue; // 避开出生区
+      if (arr.some(o => o.x === x && o.y === y)) continue;
+      arr.push({ x, y });
+    }
+    return arr;
+  }
+
+  backToMenu() {
+    this.audio.click();
+    this.state = 'menu';
+    this.resetRun();
+    this.showOverlay('menu');
+    this.renderLeaderboard();
+  }
+
+  suspend() {
+    if (this.state !== 'playing' && this.state !== 'countdown') return;
+    this.pausedFrom = this.state;
+    this.countdownLeft = Math.max(0, CONFIG.countdownMs - (performance.now() - this.countdownStart));
+    this.state = 'paused';
+    this.snake.dirQueue = [];
+    this.accumulator = 0;
+    this.showOverlay('pause');
+  }
+
+  togglePause() {
+    if (this.state === 'playing' || this.state === 'countdown') {
+      this.suspend(); this.audio.click();
+    } else if (this.state === 'paused') {
+      this.lastFrame = performance.now();
+      this.accumulator = 0;
+      this.state = this.pausedFrom === 'countdown' ? 'countdown' : 'playing';
+      if (this.state === 'countdown') {
+        this.countdownStart = this.lastFrame - (CONFIG.countdownMs - this.countdownLeft);
+        this.showOverlay('countdown');
+      } else this.hideOverlays();
+      this.audio.click();
+    }
+  }
+
+  showOverlay(name) {
+    this.hideOverlays();
+    if (name === 'menu') this.el.menu.classList.remove('hidden');
+    else if (name === 'countdown') this.el.countdown.classList.remove('hidden');
+    else if (name === 'pause') this.el.pause.classList.remove('hidden');
+    else if (name === 'gameover') this.el.gameover.classList.remove('hidden');
+  }
+  hideOverlays() {
+    this.el.menu.classList.add('hidden');
+    this.el.countdown.classList.add('hidden');
+    this.el.pause.classList.add('hidden');
+    this.el.gameover.classList.add('hidden');
+  }
+
+  /* ---------- 对外输入 API（供 InputHandler 调用） ---------- */
+  requestDirection(name) {
+    if (this.state !== 'playing') return;
+    const d = DIRECTIONS[name];
+    if (d) this.snake.queueDirection(d);
+  }
+  ensureAudio() { this.audio.ensure(); }
+  toggleMute() {
+    this.audio.ensure();
+    this.audio.enabled = !this.audio.enabled;
+    document.getElementById('btn-mute').textContent = this.audio.enabled ? '🔊' : '🔇';
+  }
+
+  /* ---------- 难度 / 主题 ---------- */
+  setDifficulty(name) {
+    if (!DIFF_NAMES[name]) return;
+    this.audio.ensure(); this.audio.click();
+    this.difficulty = name;
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.toggle('active', b.dataset.diff === name));
+    this.updateDifficultyUI();
+  }
+  setTheme(name) {
+    if (!THEMES[name]) name = 'neon';
+    this.audio.ensure(); this.audio.click();
+    this.theme = THEMES[name];
+    Storage.saveTheme(name);
+    document.documentElement.style.setProperty('--accent', this.theme.accent);
+    document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === name));
+  }
+
+  /* ---------- 横屏提示 ---------- */
+  bindOrientation() {
+    if (!this.isTouch) return;
+    const mq = window.matchMedia('(orientation: portrait)');
+    const update = () => {
+      const portrait = mq.matches;
+      this.el.orientationHint.classList.toggle('hidden', !portrait || this.orientationDismissed);
+    };
+    if (mq.addEventListener) mq.addEventListener('change', update);
+    else if (mq.addListener) mq.addListener(update);
+    document.getElementById('oh-dismiss').addEventListener('click', () => {
+      this.orientationDismissed = true;
+      this.el.orientationHint.classList.add('hidden');
+    });
+    update();
+  }
+
+  /* ---------- UI 更新 ---------- */
+  updateScoreUI() { this.el.score.textContent = this.score; }
+  updateHighscoreUI() { this.el.highscore.textContent = this.highscore; }
+  updateDifficultyUI() { this.el.difficulty.textContent = DIFF_NAMES[this.difficulty]; this.highscore = Storage.best(this.difficulty); this.updateHighscoreUI(); }
+  updateComboBadge() {
+    const b = this.el.comboBadge;
+    if (this.comboCount > 1) { b.textContent = `🔥 连续 ${this.comboCount} 个`; b.classList.remove('hidden'); }
+    else b.classList.add('hidden');
+  }
+  updateGhostBadge() {
+    const b = this.el.ghostBadge;
+    b.classList.toggle('ending', this.ghostActive && this.ghostRemaining <= 1000);
+    if (this.ghostActive) { b.textContent = `👻 幽灵 ${(this.ghostRemaining / 1000).toFixed(1)}s`; b.classList.remove('hidden'); }
+    else b.classList.add('hidden');
+  }
+  showComboPop(bonus) {
+    const el = document.createElement('div');
+    el.className = 'combo-pop';
+    el.textContent = `连续 ${this.comboCount} 个 · 奖励 +${bonus}`;
+    this.el.boardWrap.appendChild(el);
+    setTimeout(() => el.remove(), 1000);
+  }
+
+  renderLeaderboard() {
+    const list = Storage.leaderboard;
+    if (!list.length) { this.el.lbList.innerHTML = '<div class="lb-empty">暂无记录</div>'; return; }
+    this.el.lbList.innerHTML = list.map((e, i) => {
+      const diff = DIFF_NAMES[e.difficulty] || '普通';
+      const diffCls = DIFF_CLASSES[e.difficulty] || 'diff-normal';
+      return `<div class="lb-row">
+        <span class="lb-rank">${i + 1}</span>
+        <span class="lb-score">${e.score}</span>
+        <span class="lb-tag ${diffCls}">${diff}</span>
+        <span class="lb-time">${formatTime(e.time)}</span>
+        <span class="lb-date">${formatDate(e.date)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  /* ---------- 自适应尺寸：实测占用，保证始终完整显示 ---------- */
+  resize() {
+    const app = document.getElementById('app');
+    const bodyStyle = getComputedStyle(document.body);
+    const gap = parseFloat(getComputedStyle(app).gap) || 12;
+    const width = document.body.clientWidth - parseFloat(bodyStyle.paddingLeft) - parseFloat(bodyStyle.paddingRight);
+    const height = document.body.clientHeight - parseFloat(bodyStyle.paddingTop) - parseFloat(bodyStyle.paddingBottom);
+    const landscape = this.isTouch && matchMedia('(orientation: landscape) and (max-height: 600px)').matches;
+    const hintH = document.getElementById('touch-hint').offsetHeight;
+    const controlsH = this.el.controls.offsetHeight;
+    const availW = landscape ? width - 190 - gap : Math.min(width, 620);
+    const availH = height - this.el.hud.offsetHeight - (landscape ? gap : gap + (controlsH ? controlsH + gap : 0) + (hintH ? hintH + gap : 0));
+    const size = Math.min(availW, availH, CONFIG.canvas.max);
+    const cell = Math.max(1, Math.floor(size / CONFIG.grid));
+    this.renderer.resize(cell, cell * CONFIG.grid, Math.min(window.devicePixelRatio || 1, 2));
+  }
+
+  /* ---------- 渲染 ---------- */
+  render(now) {
+    this.renderer.render(now, {
+      theme: this.theme,
+      snake: this.snake,
+      food: this.food,
+      obstacles: this.obstacles,
+      ghostActive: this.ghostActive
+    });
+  }
+}
+
+/* ============================================================
+ * 启动
+ * ============================================================ */
+const game = new Game();
+</script>
+</body>
+</html>
