@@ -54,7 +54,7 @@
     width: 100%;
     max-width: 620px;
     max-height: 100dvh;
-    overflow: hidden;
+    overflow: visible;
   }
 
   /* ---------- 顶部 HUD ---------- */
@@ -95,10 +95,20 @@
   #board-wrap {
     position: relative;
     border-radius: 16px;
-    box-shadow: 0 0 0 1px var(--border), 0 0 32px rgba(34, 211, 238, 0.18);
+    box-shadow: 0 0 32px rgba(34, 211, 238, 0.18);
     overflow: hidden;
     line-height: 0;
     flex: 0 0 auto;
+  }
+  /* 内沿边框覆盖结算层，不占布局空间，也不拦截操作。 */
+  #board-wrap::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--border);
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 20;
   }
   #game { display: block; touch-action: none; }
 
