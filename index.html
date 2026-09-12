@@ -420,7 +420,7 @@ function starPath(ctx, cx, cy, outer, inner, points) {
  * 音效系统（Web Audio API，无外部资源）
  * ============================================================ */
 class AudioManager {
-  constructor() { this.ctx = null; this.enabled = true; }
+  constructor() { this.ctx = null; this.enabled = true; this.countdownNote = null; }
   ensure() {
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
@@ -439,7 +439,26 @@ class AudioManager {
     gain.gain.setValueAtTime(vol, t0);
     gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     osc.connect(gain); gain.connect(this.ctx.destination);
+    osc.onended = () => {
+      osc.disconnect(); gain.disconnect();
+      if (this.countdownNote?.osc === osc) this.countdownNote = null;
+    };
     osc.start(t0); osc.stop(t0 + dur);
+    return { osc, gain };
+  }
+  countdown(number) {
+    this.stopCountdown();
+    this.countdownNote = number > 0
+      ? this._beep(660, 0.10, 'sine', 0.075)
+      : this._beep(990, 0.18, 'sine', 0.09);
+  }
+  stopCountdown() {
+    if (!this.countdownNote) return;
+    const { osc, gain } = this.countdownNote;
+    gain.gain.cancelScheduledValues(this.ctx.currentTime);
+    gain.gain.setValueAtTime(0, this.ctx.currentTime);
+    osc.stop(this.ctx.currentTime);
+    this.countdownNote = null;
   }
   move()    { this._beep(150, 0.05, 'square', 0.025); }
   eat(combo){ const base = 440 + Math.min(combo || 1, 5) * 60;
@@ -1079,14 +1098,15 @@ class Game {
     // 倒计时
     if (this.state === 'countdown') {
       const elapsed = now - this.countdownStart;
-      this.el.countdownNum.textContent = String(Math.max(1, Math.ceil((CONFIG.countdownMs - elapsed) / 1000)));
       if (elapsed >= CONFIG.countdownMs) {
+        this.audio.countdown(0);
         this.state = 'playing';
         this.startTime = now;
         this.accumulator = 0;
         this.el.countdown.classList.add('hidden');
         return;
       }
+      this.showCountdownNumber(Math.max(1, Math.ceil((CONFIG.countdownMs - elapsed) / 1000)));
     }
 
     // 游戏进行中
@@ -1219,17 +1239,26 @@ class Game {
 
   /* ---------- 流程控制 ---------- */
   startGame(difficulty) {
-    this.audio.ensure(); this.audio.click();
+    this.audio.ensure();
     this.difficulty = difficulty;
     this.updateDifficultyUI();
     this.resetRun();
     this.state = 'countdown';
     this.countdownStart = performance.now();
-    this.el.countdownNum.textContent = '3';
+    this.showCountdownNumber(3);
     this.showOverlay('countdown');
   }
 
+  showCountdownNumber(number) {
+    this.el.countdownNum.textContent = String(number);
+    if (this.countdownNumber === number) return;
+    this.countdownNumber = number;
+    this.audio.countdown(number);
+  }
+
   resetRun() {
+    this.audio.stopCountdown();
+    this.countdownNumber = null;
     this.resultDueAt = 0;
     this.deathSceneNow = 0;
     this.rewardUntil = 0;
@@ -1278,6 +1307,7 @@ class Game {
 
   suspend() {
     if (this.state !== 'playing' && this.state !== 'countdown') return;
+    this.audio.stopCountdown();
     this.pausedFrom = this.state;
     this.countdownLeft = Math.max(0, CONFIG.countdownMs - (performance.now() - this.countdownStart));
     this.state = 'paused';
@@ -1326,6 +1356,7 @@ class Game {
   toggleMute() {
     this.audio.ensure();
     this.audio.enabled = !this.audio.enabled;
+    if (!this.audio.enabled) this.audio.stopCountdown();
     const button = document.getElementById('btn-mute');
     button.classList.toggle('is-muted', !this.audio.enabled);
     button.setAttribute('aria-pressed', String(!this.audio.enabled));
