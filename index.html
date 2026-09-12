@@ -6,505 +6,271 @@
 <title>贪吃蛇 · Snake</title>
 <style>
   :root {
-    --accent: #22d3ee;
-    --bg: #0f172a;
-    --bg-deep: #0a0a0a;
-    --panel: #1e293b;
-    --text: #e2e8f0;
-    --subtext: #94a3b8;
-    --border: rgba(255, 255, 255, 0.1);
-    --ghost: #c084fc;
-    /* 字体层级 */
-    --fs-title: 20px;   /* 标题：20px 加粗 */
-    --fs-body: 16px;    /* 正文：16px 常规 */
-    --fs-aux: 14px;     /* 辅助信息：14px 半透明（最小字号） */
-    /* 间距规范 */
-    --space: 24px;
+    --accent: #22d3ee; --bg: #101923; --board: #101e2a; --panel: #172732;
+    --text: #e7f2f3; --subtext: #a4bac1; --border: #354b57; --hover: #203743;
+    --ghost: #93cbd8; --food: #ee8193; --special: #e8c879; --overlay: rgba(7,17,24,.60);
+    --radius: 8px; --board-size: 600px;
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-
-  /* 禁止页面滚动：html/body 均 overflow:hidden，动态视口单位避免移动端地址栏挤压 */
-  html, body {
-    height: 100%;
-    overflow: hidden;
-    overscroll-behavior: none;
-  }
-
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
   body {
-    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-    background:
-      radial-gradient(1200px 800px at 50% -10%, rgba(34, 211, 238, 0.10), transparent 60%),
-      var(--bg);
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100dvh;
-    min-height: 0;
-    padding: 12px;
-    overflow: hidden;
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+    color: var(--text); background: var(--bg); display: flex; align-items: center;
+    justify-content: center; height: 100dvh; padding: 12px; min-height: 0;
+    font-size: 14px; line-height: 1.5;
   }
-
-  #app {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space);
-    width: 100%;
-    max-width: 620px;
-    max-height: 100dvh;
-    overflow: visible;
+  button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .hidden { display: none !important; }
+  .icon-library { position: absolute; width: 0; height: 0; overflow: hidden; }
+  .icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  #app { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; width: var(--board-size); flex: 0 0 auto; max-height: 100%; }
+  #hud { display: flex; align-items: center; width: var(--board-size); height: 56px; gap: 18px; flex: 0 0 auto; }
+  .stats { display: flex; align-items: center; gap: 22px; min-width: 0; flex: 1; }
+  .stat { display: flex; flex-direction: column; gap: 0; white-space: nowrap; }
+  .label, .section-label { font-size: 12px; color: var(--subtext); }
+  .value, .number, .lb-score, .lb-time, .lb-rank, #go-score, #countdown-num {
+    font-family: "Cascadia Mono", Consolas, "SFMono-Regular", monospace; font-variant-numeric: tabular-nums;
   }
-
-  /* ---------- 顶部 HUD ---------- */
-  #hud {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    width: 100%;
-    padding: 0 4px;
-    flex: 0 0 auto;
+  .stat .value { font-size: 14px; line-height: 1.5; }
+  .stat-score .value { font-size: 30px; line-height: 1.1; color: var(--accent); font-weight: 700; }
+  #difficulty { font-family: inherit; }
+  .hud-actions { display: flex; gap: 6px; }
+  .icon-btn, .btn, .dpad-btn { border: 1px solid var(--border); border-radius: var(--radius); background: transparent; box-shadow: none; transition: background-color 120ms, border-color 120ms, transform 80ms; }
+  .icon-btn { width: 40px; height: 40px; display: grid; place-items: center; flex: 0 0 auto; color: var(--subtext); }
+  .icon-btn:disabled { opacity: .4; cursor: default; }
+  .icon-play, .icon-sound-off { display: none; }
+  #app[data-state="paused"] .icon-pause, .is-muted .icon-sound-on { display: none; }
+  #app[data-state="paused"] .icon-play, .is-muted .icon-sound-off { display: block; }
+  .btn { min-height: 44px; padding: 10px 18px; font-weight: 600; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+  @media (hover: hover) {
+    .btn:hover, .icon-btn:not(:disabled):hover, .dpad-btn:hover { background: var(--hover); border-color: var(--subtext); }
+    .btn.primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--text)); border-color: var(--accent); }
   }
-  #hud .stats { display: flex; gap: 12px; }
-  .stat {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 8px 14px;
-    text-align: center;
-    min-width: 88px;
-  }
-  .stat .label { font-size: var(--fs-aux); color: var(--subtext); letter-spacing: 1px; }
-  .stat .value { font-size: 20px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
-  .icon-btn {
-    width: 44px; height: 44px; min-width: 44px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: var(--panel);
-    color: var(--accent);
-    font-size: 18px;
-    cursor: pointer;
-    transition: transform .12s, box-shadow .12s;
-  }
-  .icon-btn:hover { box-shadow: 0 0 12px var(--accent); }
-  .icon-btn:active { transform: scale(.92); }
-
-  /* ---------- 棋盘 ---------- */
-  #board-wrap {
-    position: relative;
-    border-radius: 16px;
-    box-shadow: 0 0 32px rgba(34, 211, 238, 0.18);
-    overflow: hidden;
-    line-height: 0;
-    flex: 0 0 auto;
-  }
-  /* 内沿边框覆盖结算层，不占布局空间，也不拦截操作。 */
-  #board-wrap::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border: 1px solid var(--border);
-    border-radius: inherit;
-    pointer-events: none;
-    z-index: 20;
-  }
+  .btn:active, .icon-btn:not(:disabled):active, .dpad-btn:active { transform: translateY(1px); }
+  .btn-group { display: flex; gap: 8px; }
+  #status-strip { width: var(--board-size); height: 60px; flex: 0 0 auto; }
+  .status-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; height: 36px; }
+  .status-slot { min-width: 0; visibility: hidden; color: var(--subtext); font-size: 12px; }
+  .status-slot.active { visibility: visible; }
+  .status-label { height: 22px; display: flex; align-items: center; justify-content: space-between; gap: 4px; white-space: nowrap; }
+  .status-label strong { font-weight: 500; color: var(--accent); }
+  #ghost-badge .status-label strong { color: var(--ghost); }
+  #special-badge .status-label strong { color: var(--special); }
+  .status-meter { display: block; height: 2px; width: 100%; background: var(--border); }
+  .status-meter i { display: block; height: 100%; width: 0; background: var(--accent); }
+  #ghost-badge .status-meter i { background: var(--ghost); }
+  #special-badge .status-meter i { background: var(--special); }
+  .reward-line { height: 24px; display: flex; align-items: center; justify-content: center; }
+  #reward-toast { visibility: hidden; font-size: 12px; color: var(--accent); font-variant-numeric: tabular-nums; }
+  #reward-toast.show { visibility: visible; }
+  #board-wrap { position: relative; width: var(--board-size); height: var(--board-size); border-radius: var(--radius); overflow: hidden; flex: 0 0 auto; background: var(--board); line-height: 0; }
+  #board-wrap::after { content: ''; position: absolute; inset: 0; border: 1px solid var(--border); border-radius: inherit; pointer-events: none; z-index: 20; }
+  #board-wrap.has-ghost::after { border-color: var(--ghost); border-style: dashed; }
   #game { display: block; touch-action: none; }
-
-  /* 连击徽章（常驻） */
-  #combo-badge {
-    position: absolute;
-    top: 10px; left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.55);
-    border: 1px solid var(--accent);
-    color: var(--accent);
-    border-radius: 999px;
-    padding: 4px 14px;
-    font-size: 14px;
-    font-weight: 700;
-    pointer-events: none;
-    transition: opacity .2s;
-  }
-  #combo-badge.hidden { opacity: 0; }
-
-  /* 幽灵模式徽章 */
-  #ghost-badge {
-    position: absolute;
-    top: 44px; left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.55);
-    border: 1px solid var(--ghost);
-    color: var(--ghost);
-    border-radius: 999px;
-    padding: 4px 14px;
-    font-size: 14px;
-    font-weight: 700;
-    pointer-events: none;
-    transition: opacity .2s;
-  }
-  #ghost-badge.hidden { opacity: 0; }
-
-  /* 连击漂浮提示 */
-  .combo-pop {
-    position: absolute;
-    top: 42px; left: 50%;
-    transform: translateX(-50%);
-    color: var(--accent);
-    font-weight: 800;
-    font-size: 18px;
-    text-shadow: 0 0 12px var(--accent);
-    pointer-events: none;
-    animation: comboPop 1s ease-out forwards;
-    white-space: nowrap;
-  }
-  @keyframes comboPop {
-    0% { opacity: 0; transform: translate(-50%, 8px) scale(.8); }
-    20% { opacity: 1; transform: translate(-50%, 0) scale(1.1); }
-    100% { opacity: 0; transform: translate(-50%, -26px) scale(1); }
-  }
-
-  /* ---------- 覆盖层（安全居中：内容少时居中，溢出时可从顶部滚动） ---------- */
-  .overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.94);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space);
-    padding: 24px;
-    text-align: center;
-    z-index: 10;
-    overflow-y: auto;
-  }
-  .overlay::before, .overlay::after { content: ''; margin: auto; }
-  .overlay.hidden { display: none; }
-
-  .title {
-    font-size: var(--fs-title);
-    font-weight: 700;
-    letter-spacing: 1px;
-    background: linear-gradient(90deg, var(--accent), #a78bfa);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  .subtitle { color: var(--subtext); font-size: var(--fs-aux); }
-
-  .section-label { font-size: var(--fs-aux); color: var(--subtext); letter-spacing: 2px; }
-
-  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-
-  .btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text);
-    border-radius: 10px;
-    padding: 8px 18px;
-    font-size: var(--fs-body);
-    min-height: 44px;
-    cursor: pointer;
-    transition: all .15s;
-    font-family: inherit;
-  }
-  .btn:hover { border-color: var(--accent); color: var(--accent); }
-  .btn.active {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: rgba(34, 211, 238, 0.12);
-    box-shadow: 0 0 12px rgba(34, 211, 238, 0.35);
-  }
-  .btn.primary {
-    background: var(--accent);
-    color: #06121a;
-    font-weight: 700;
-    font-size: var(--fs-body);
-    padding: 12px 34px;
-    min-height: 44px;
-    border: none;
-    box-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
-  }
-  .btn.primary:hover { color: #06121a; transform: translateY(-1px); }
-  .btn.primary:active { transform: translateY(0) scale(.97); }
-
-  /* ---------- 排行榜：卡片式列表 ---------- */
-  .leaderboard {
-    width: 100%;
-    max-width: 360px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-    text-align: left;
-  }
-  .leaderboard .lb-title {
-    padding: 12px 16px;
-    font-size: var(--fs-title);
-    font-weight: 700;
-    color: var(--text);
-    border-bottom: 1px solid var(--border);
-  }
-  .lb-list { max-height: 240px; overflow-y: auto; }
-  .lb-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    height: 40px;
-    padding: 0 16px;
-    border-bottom: 1px solid var(--border);
-    font-size: var(--fs-aux);
-  }
-  .lb-row:last-child { border-bottom: none; }
-  .lb-rank { width: 20px; flex: none; text-align: center; font-weight: 700; color: var(--subtext); }
-  .lb-score { min-width: 36px; flex: none; text-align: right; font-size: var(--fs-body); font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
-  .lb-tag { flex: none; padding: 3px 10px; border-radius: 999px; font-size: var(--fs-aux); font-weight: 700; line-height: 1.4; }
-  .diff-easy   { color: #4ade80; background: rgba(74, 222, 128, 0.16); }
-  .diff-normal { color: #facc15; background: rgba(250, 204, 21, 0.16); }
-  .diff-hard   { color: #f87171; background: rgba(248, 113, 113, 0.16); }
-  .lb-time { flex: none; color: var(--subtext); font-size: var(--fs-aux); font-variant-numeric: tabular-nums; }
-  .lb-date { margin-left: auto; color: var(--subtext); font-size: var(--fs-aux); white-space: nowrap; }
-  .lb-empty { color: var(--subtext); padding: 16px; text-align: center; font-size: var(--fs-aux); }
-
-  .hint { color: var(--subtext); font-size: var(--fs-aux); line-height: 1.8; }
-
-  /* 倒计时数字 */
-  #countdown-num {
-    font-size: 88px;
-    font-weight: 900;
-    color: var(--accent);
-    text-shadow: 0 0 30px var(--accent);
-    animation: countPulse .8s ease-in-out infinite;
-  }
-  @keyframes countPulse {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.15); opacity: .7; }
-  }
-
-  /* 游戏结束数值 */
-  .go-stats { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 280px; }
-  .go-stat {
-    display: flex; justify-content: space-between; align-items: center;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 16px;
-  }
-  .go-stat .label { color: var(--subtext); font-size: var(--fs-body); }
-  .go-stat .value { color: var(--accent); font-weight: 700; font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
-  .record-badge {
-    display: none;
-    color: #fbbf24;
-    font-weight: 700;
-    font-size: var(--fs-body);
-    letter-spacing: 2px;
-    text-shadow: 0 0 12px #fbbf24;
-  }
-  .record-badge.show { display: block; animation: countPulse 1s ease-in-out infinite; }
-  .gameover-title { font-size: var(--fs-title); font-weight: 700; letter-spacing: 1px; color: var(--text); }
-
-  /* ---------- 虚拟方向键 ---------- */
-  #touch-controls { display: none; }
-  body.touch #touch-controls {
-    display: grid;
-    grid-template-areas: ". up ." "left down right";
-    gap: 8px;
-    justify-items: center;
-    flex: 0 0 auto;
-  }
-  .dpad-btn {
-    width: 58px; height: 58px;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--accent);
-    font-size: 22px;
-    cursor: pointer;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  .dpad-btn:active { background: rgba(34, 211, 238, 0.25); }
-  .dpad-up { grid-area: up; }
-  .dpad-down { grid-area: down; }
-  .dpad-left { grid-area: left; }
-  .dpad-right { grid-area: right; }
-
-  /* 虚拟方向键上方的说明文字 */
-  #touch-hint {
-    display: none;
-    flex: 0 0 auto;
-    font-size: var(--fs-aux);
-    color: var(--subtext);
-    text-align: center;
-  }
-  body.touch #touch-hint { display: block; }
-
-  /* ---------- 响应式断点 ---------- */
-  @media (max-width: 768px) {
-    .lb-date { display: none; }   /* 移动端精简：隐藏日期列 */
-  }
-  @media (max-width: 360px) {
-    #touch-hint { display: none !important; } /* 超小屏隐藏方向键上方说明 */
-  }
-
-  /* ---------- 横屏提示（全屏覆盖） ---------- */
-  #orientation-hint {
-    position: fixed;
-    inset: 0;
-    z-index: 100;
-    background: rgba(10, 10, 10, 0.97);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 18px;
-    text-align: center;
-    padding: 24px;
-  }
-  #orientation-hint.hidden { display: none; }
-  .oh-icon { font-size: 64px; animation: ohSpin 2s ease-in-out infinite; }
-  @keyframes ohSpin {
-    0%, 20% { transform: rotate(0deg); }
-    60%, 100% { transform: rotate(90deg); }
-  }
-  .oh-text { font-size: 18px; line-height: 1.8; color: var(--text); }
-
-  /* 窄屏紧凑 HUD；横屏将控制区放到棋盘右侧。 */
-  #app { gap: 12px; max-height: 100%; }
-  #hud .stats { flex: 1; min-width: 0; gap: 6px; }
-  .stat { min-width: 0; flex: 1; padding: 6px 8px; }
-  #hud { gap: 8px; }
-  .overlay { line-height: 1.5; }
-  .overlay > * { flex-shrink: 0; }
-  #combo-badge, #ghost-badge { line-height: 1.4; white-space: nowrap; }
-  #ghost-badge.ending { animation: countPulse .35s ease-in-out infinite; color: #fbbf24; }
-  #touch-hint { line-height: 1.4; }
-  @media (max-width: 380px) {
-    .stat .label { letter-spacing: 0; font-size: 12px; }
-    .stat .value { font-size: 17px; }
-    .stat { padding: 6px 4px; }
-    #hud > div:last-child { gap: 4px !important; }
-    .overlay { padding: 16px; gap: 12px; }
+  .overlay { position: absolute; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; padding: 18px; line-height: 1.5; background: var(--overlay); }
+  .result-panel, .pause-panel { width: min(100%, 320px); padding: 24px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); text-align: center; }
+  .result-title, .pause-title { font-size: 22px; font-weight: 700; letter-spacing: .02em; }
+  .subtitle { color: var(--subtext); font-size: 13px; }
+  #result-reason { margin-top: 4px; }
+  .result-score { margin: 16px 0 10px; }
+  .result-score .label { display: block; }
+  #go-score { display: block; color: var(--accent); font-size: 52px; font-weight: 700; line-height: 1.2; }
+  .result-meta { display: flex; justify-content: center; gap: 20px; color: var(--subtext); font-size: 12px; }
+  .result-meta .number { color: var(--text); margin-left: 4px; }
+  .record-badge { display: none; color: var(--accent); font-size: 12px; }
+  .record-badge.show { display: block; }
+  .result-actions { margin-top: 20px; display: flex; flex-direction: column; gap: 8px; }
+  .result-actions .btn { width: 100%; }
+  #btn-menu { border-color: transparent; color: var(--subtext); }
+  .pause-panel .subtitle { margin: 8px 0 20px; }
+  .pause-actions { display: grid; gap: 8px; }
+  #overlay-countdown { background: transparent; align-items: flex-start; padding-top: 12%; pointer-events: none; }
+  .countdown-display { text-align: center; padding: 8px 24px; border: 1px solid var(--border); background: var(--panel); border-radius: var(--radius); }
+  #countdown-num { font-size: 48px; line-height: 1.2; font-weight: 700; color: var(--accent); }
+  #app[data-state="gameover"] .stats { visibility: hidden; }
+  #app[data-state="gameover"] .status-slot, #app[data-state="gameover"] .reward-line { visibility: hidden; }
+  #app[data-state="gameover"] #reward-toast { visibility: hidden; }
+  #app.compact-board #overlay-gameover { position: fixed; z-index: 40; }
+  #app.compact-board .status-detail { display: none; }
+  #overlay-menu { z-index: 30; background: var(--bg); overflow-y: auto; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); }
+  .menu-card { width: 100%; max-width: 540px; padding: 22px 26px; margin: auto; }
+  .menu-heading { display: flex; align-items: baseline; justify-content: space-between; }
+  .menu-heading h1 { font-size: 26px; letter-spacing: .04em; }
+  .menu-edition { font-size: 12px; color: var(--subtext); letter-spacing: .12em; }
+  .menu-scene { height: 62px; margin: 8px 0 14px; display: flex; justify-content: center; align-items: center; background: var(--board); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  #menu-snake { width: 240px; height: 48px; }
+  .menu-settings { display: grid; gap: 12px; }
+  .section-label { display: block; margin-bottom: 6px; }
+  #diff-group, #theme-group { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+  .diff-btn { min-width: 0; padding: 8px 2px; font-size: 13px; font-weight: 500; }
+  .diff-btn small { color: var(--subtext); margin-left: 5px; font-size: 12px; font-weight: 400; }
+  .diff-btn.active { border-color: var(--accent); color: var(--accent); background: var(--panel); }
+  .theme-btn { position: relative; display: flex; flex-direction: column; align-items: stretch; padding: 5px; gap: 4px; min-width: 0; font-weight: 500; font-size: 12px; overflow: hidden; }
+  .theme-preview { width: 100%; height: 36px; display: block; border-radius: 2px; image-rendering: pixelated; }
+  .theme-btn.active { border-color: var(--accent); background: var(--panel); color: var(--accent); }
+  .theme-name { padding: 0 5px; display: flex; justify-content: space-between; align-items: center; }
+  .selected-mark { width: 14px; height: 14px; visibility: hidden; }
+  .theme-btn.active .selected-mark { visibility: visible; }
+  .menu-start { margin-top: 16px; }
+  #btn-start { width: 100%; }
+  .hint { color: var(--subtext); font-size: 12px; text-align: center; margin-top: 8px; }
+  .hint-touch { display: none; }
+  .touch .hint-keyboard { display: none; }
+  .touch .hint-touch { display: inline; }
+  .leaderboard { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .lb-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .lb-title { font-size: 12px; color: var(--subtext); font-weight: 500; }
+  #btn-lb-all { border: 0; color: var(--subtext); padding: 4px 0 4px 12px; font-size: 12px; background: transparent; }
+  #btn-lb-all:hover { color: var(--accent); }
+  .lb-row { display: grid; grid-template-columns: 16px 1fr 40px 46px 72px; align-items: center; gap: 8px; min-height: 26px; font-size: 12px; color: var(--subtext); }
+  .lb-score { color: var(--text); font-weight: 600; }
+  .lb-date { text-align: right; font-variant-numeric: tabular-nums; }
+  .lb-empty { font-size: 12px; color: var(--subtext); padding: 6px 0; }
+  #touch-hint { display: none; font-size: 12px; color: var(--subtext); height: 18px; flex: 0 0 auto; }
+  #touch-controls { display: none; grid-template-columns: repeat(3,44px); grid-template-rows: repeat(2,44px); gap: 6px; flex: 0 0 auto; }
+  .touch #touch-hint { display: block; }
+  .touch #touch-controls { display: grid; }
+  .dpad-btn { color: var(--subtext); width: 44px; height: 44px; display: grid; place-items: center; user-select: none; touch-action: none; }
+  .dpad-up { grid-column: 2; grid-row: 1; } .dpad-left { grid-column: 1; grid-row: 2; }
+  .dpad-down { grid-column: 2; grid-row: 2; } .dpad-right { grid-column: 3; grid-row: 2; }
+  .dpad-left .icon { transform: rotate(-90deg); } .dpad-down .icon { transform: rotate(180deg); } .dpad-right .icon { transform: rotate(90deg); }
+  #app[data-state="menu"] #touch-controls, #app[data-state="menu"] #touch-hint { visibility: hidden; }
+  body[data-theme="pixel"] { --radius: 2px; }
+  body[data-theme="pixel"] canvas { image-rendering: pixelated; }
+  body[data-theme="pixel"] .selected-mark, body[data-theme="pixel"] .icon { stroke-linecap: square; stroke-linejoin: miter; }
+  #orientation-hint { display: none; }
+  @media (max-width: 480px) {
+    body { padding: 8px; }
+    #hud { gap: 8px; }
+    .stats { gap: 14px; }
+    .hud-actions { gap: 4px; }
+    .icon-btn { width: 36px; height: 40px; }
+    .menu-card { padding: 16px; }
+    .menu-heading h1 { font-size: 24px; }
+    .menu-scene { margin: 8px 0 12px; height: 54px; }
+    .diff-btn small { display: block; margin: 0; }
+    .diff-btn { padding: 5px 2px; }
+    .menu-settings { gap: 10px; }
+    .result-panel, .pause-panel { padding: 18px; }
+    .result-title, .pause-title { font-size: 20px; }
+    .result-score { margin: 10px 0 8px; }
+    #go-score { font-size: 44px; }
+    .result-actions { margin-top: 12px; gap: 4px; }
+    .result-actions .btn { min-height: 40px; padding: 8px 12px; }
+    .status-grid { gap: 8px; }
+    .lb-row { gap: 5px; grid-template-columns: 14px 1fr 32px 40px 68px; }
   }
   @media (orientation: landscape) and (max-height: 600px) {
-    body.touch #app { display: grid; grid-template-columns: auto 190px; justify-content: center; max-width: none; }
-    body.touch #hud { grid-column: 1 / -1; }
-    body.touch #board-wrap { grid-column: 1; grid-row: 2 / 4; }
-    body.touch #touch-hint { grid-column: 2; grid-row: 2; align-self: end; }
-    body.touch #touch-controls { grid-column: 2; grid-row: 3; align-self: start; }
-    body.touch .overlay { padding: 12px; gap: 10px; }
+    .touch #app { padding-right: 170px; width: calc(var(--board-size) + 170px); }
+    .touch #touch-controls { position: absolute; right: 6px; top: 50%; transform: translateY(-20%); }
+    .touch #touch-hint { position: absolute; width: 152px; text-align: center; right: 0; top: calc(50% - 38px); height: auto; }
+    #overlay-menu { position: fixed; inset: 10px max(10px,calc((100vw - 720px)/2)); }
+    .menu-card { max-width: none; display: grid; grid-template-columns: 1.3fr 1fr; column-gap: 24px; padding: 18px 24px; }
+    .menu-heading { grid-column: 1 / -1; }
+    .menu-scene { grid-column: 1; margin-bottom: 8px; height: 48px; }
+    .menu-settings { grid-column: 1; gap: 8px; }
+    .menu-start { grid-column: 2; grid-row: 2; margin-top: 8px; }
+    .leaderboard { grid-column: 2; grid-row: 3; margin-top: 10px; padding-top: 8px; }
+    .diff-btn small { display: none; }
+    .theme-preview { height: 28px; }
+    #app { gap: 4px; }
+    #hud { height: 48px; }
+    #status-strip { height: 50px; }
+    .status-grid { height: 30px; }
+    .reward-line { height: 20px; }
+    .overlay { padding: 10px; }
+    .result-panel, .pause-panel { padding: 12px; }
+    .result-title, .pause-title { font-size: 18px; }
+    .result-score { margin: 2px 0; }
+    #go-score { font-size: 34px; }
+    .result-actions { margin-top: 8px; gap: 4px; }
+    .result-actions .btn { padding: 5px 10px; min-height: 34px; }
+    .pause-panel .subtitle { margin: 4px 0 10px; }
+    .pause-actions { gap: 4px; }
+    .pause-actions .btn { min-height: 36px; padding: 6px; }
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
+    .btn:active, .icon-btn:active, .dpad-btn:active { transform: none; }
   }
+
 </style>
 </head>
-<body>
-<div id="app">
-  <!-- 顶部 HUD -->
-  <header id="hud">
+<body data-theme="neon">
+<svg class="icon-library" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4ZM15 8a6 6 0 0 1 0 8M18 5a10 10 0 0 1 0 14"/></symbol>
+  <symbol id="i-muted" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4ZM16 9l6 6m0-6-6 6"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="m6 11 6-6 6 6M12 5v14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+</defs></svg>
+<main id="app" data-state="menu">
+  <header id="hud" aria-label="游戏信息">
     <div class="stats">
-      <div class="stat"><div class="label">分数</div><div class="value" id="score">0</div></div>
-      <div class="stat"><div class="label">最高分</div><div class="value" id="highscore">0</div></div>
-      <div class="stat"><div class="label">难度</div><div class="value" id="difficulty">普通</div></div>
+      <div class="stat stat-score"><span class="label">分数</span><span class="value" id="score">0</span></div>
+      <div class="stat"><span class="label">最高分</span><span class="value" id="highscore">0</span></div>
+      <div class="stat"><span class="label">难度</span><span class="value" id="difficulty">普通</span></div>
     </div>
-    <div style="display:flex;gap:8px;">
-      <button class="icon-btn" id="btn-pause" title="暂停 / 继续 (空格)">⏸</button>
-      <button class="icon-btn" id="btn-mute" title="声音开关">🔊</button>
+    <div class="hud-actions">
+      <button class="icon-btn" id="btn-pause" title="暂停 / 继续（空格）" aria-label="暂停游戏"><svg class="icon icon-pause"><use href="#i-pause"/></svg><svg class="icon icon-play"><use href="#i-play"/></svg></button>
+      <button class="icon-btn" id="btn-mute" title="关闭声音" aria-label="静音" aria-pressed="false"><svg class="icon icon-sound-on"><use href="#i-volume"/></svg><svg class="icon icon-sound-off"><use href="#i-muted"/></svg></button>
     </div>
   </header>
-
-  <!-- 棋盘 + 覆盖层 -->
+  <div id="status-strip" aria-label="连吃与限时状态">
+    <div class="status-grid">
+      <div class="status-slot" id="combo-badge"><div class="status-label"><strong>连吃 <span id="combo-count" class="number">1</span></strong><span class="number" id="combo-time"></span></div><span class="status-meter"><i id="combo-meter"></i></span></div>
+      <div class="status-slot" id="ghost-badge"><div class="status-label"><strong>幽灵</strong><span class="number" id="ghost-time"></span></div><span class="status-meter"><i id="ghost-meter"></i></span></div>
+      <div class="status-slot" id="special-badge"><div class="status-label"><strong>星形<span class="status-detail">道具</span></strong><span class="number" id="special-time"></span></div><span class="status-meter"><i id="special-meter"></i></span></div>
+    </div>
+    <div class="reward-line"><span id="reward-toast" role="status" aria-live="polite" aria-atomic="true"></span></div>
+  </div>
   <div id="board-wrap">
-    <canvas id="game"></canvas>
-    <div id="combo-badge" class="hidden">🔥 x1</div>
-    <div id="ghost-badge" class="hidden">👻 幽灵</div>
-
-    <!-- 开始菜单 -->
-    <div class="overlay" id="overlay-menu">
-      <div class="title">🐍 贪吃蛇</div>
-      <div class="subtitle">经典重现 · 霓虹夜行</div>
-
-      <div class="section-label">难度</div>
-      <div class="btn-group" id="diff-group">
-        <button class="btn diff-btn" data-diff="easy">简单 · 穿墙</button>
-        <button class="btn diff-btn active" data-diff="normal">普通 · 标准</button>
-        <button class="btn diff-btn" data-diff="hard">困难 · 障碍</button>
-      </div>
-
-      <div class="section-label">皮肤</div>
-      <div class="btn-group" id="theme-group">
-        <button class="btn theme-btn active" data-theme="neon">霓虹</button>
-        <button class="btn theme-btn" data-theme="pixel">像素</button>
-        <button class="btn theme-btn" data-theme="forest">森林</button>
-      </div>
-
-      <button class="btn primary" id="btn-start">开始游戏</button>
-
-      <div class="leaderboard">
-        <div class="lb-title">🏆 最近战绩</div>
-        <div class="lb-list" id="lb-list"><div class="lb-empty">暂无记录</div></div>
-      </div>
-
-      <div class="hint">方向键 / WASD 移动 · 空格 暂停<br>每吃 5 个食物触发 3 秒幽灵模式 👻</div>
-    </div>
-
-    <!-- 倒计时 -->
-    <div class="overlay hidden" id="overlay-countdown">
-      <div id="countdown-num">3</div>
-      <div class="subtitle">准备…</div>
-    </div>
-
-    <!-- 暂停 -->
+    <canvas id="game" aria-label="贪吃蛇棋盘，使用方向键、WASD 或触控转向"></canvas>
+    <div class="overlay hidden" id="overlay-countdown"><div class="countdown-display"><div id="countdown-num">3</div><div class="subtitle">准备出发</div></div></div>
     <div class="overlay hidden" id="overlay-pause">
-      <div class="gameover-title">已暂停</div>
-      <div class="subtitle">按 空格 或点击按钮继续</div>
-      <div class="btn-group">
-        <button class="btn primary" id="btn-resume">继续</button>
-        <button class="btn" id="btn-restart-from-pause">重新开始</button>
-        <button class="btn" id="btn-menu-from-pause">返回菜单</button>
-      </div>
+      <section class="pause-panel" aria-label="暂停菜单"><h2 class="pause-title">已暂停</h2><p class="subtitle">准备好了，就继续前进</p>
+        <div class="pause-actions"><button class="btn primary" id="btn-resume">继续游戏</button><button class="btn" id="btn-restart-from-pause">重新开始</button><button class="btn" id="btn-menu-from-pause">返回菜单</button></div>
+      </section>
     </div>
-
-    <!-- 游戏结束 -->
     <div class="overlay hidden" id="overlay-gameover">
-      <div class="gameover-title" id="result-title">游戏结束</div>
-      <div class="subtitle" id="result-reason"></div>
-      <div class="record-badge" id="record-badge">✨ 新纪录！</div>
-      <div class="go-stats">
-        <div class="go-stat"><span class="label">本局得分</span><span class="value" id="go-score">0</span></div>
-        <div class="go-stat"><span class="label">最高分</span><span class="value" id="go-high">0</span></div>
-        <div class="go-stat"><span class="label">存活时间</span><span class="value" id="go-time">00:00</span></div>
-      </div>
-      <div class="btn-group">
-        <button class="btn primary" id="btn-again">再来一局</button>
-        <button class="btn" id="btn-menu">返回菜单</button>
-      </div>
+      <section class="result-panel" aria-label="本局结果"><h2 class="result-title" id="result-title">游戏结束</h2><p class="subtitle" id="result-reason"></p>
+        <div class="result-score"><span class="label">本局得分</span><span id="go-score">0</span></div>
+        <div class="record-badge" id="record-badge">新的最高分</div>
+        <div class="result-meta"><span>最高 <span class="number" id="go-high">0</span></span><span>存活 <span class="number" id="go-time">00:00</span></span></div>
+        <div class="result-actions"><button class="btn primary" id="btn-again">再来一局</button><button class="btn" id="btn-menu">返回菜单</button></div>
+      </section>
     </div>
   </div>
-
-  <!-- 虚拟方向键上方的说明文字 -->
   <div id="touch-hint">滑动棋盘或点击方向键转向</div>
-
-  <!-- 虚拟方向键 -->
-  <div id="touch-controls">
-    <button class="dpad-btn dpad-up" data-dir="up">▲</button>
-    <button class="dpad-btn dpad-left" data-dir="left">◀</button>
-    <button class="dpad-btn dpad-down" data-dir="down">▼</button>
-    <button class="dpad-btn dpad-right" data-dir="right">▶</button>
+  <div id="touch-controls" aria-label="方向控制">
+    <button class="dpad-btn dpad-up" data-dir="up" aria-label="向上"><svg class="icon"><use href="#i-arrow"/></svg></button>
+    <button class="dpad-btn dpad-left" data-dir="left" aria-label="向左"><svg class="icon"><use href="#i-arrow"/></svg></button>
+    <button class="dpad-btn dpad-down" data-dir="down" aria-label="向下"><svg class="icon"><use href="#i-arrow"/></svg></button>
+    <button class="dpad-btn dpad-right" data-dir="right" aria-label="向右"><svg class="icon"><use href="#i-arrow"/></svg></button>
   </div>
-</div>
-
-<!-- 横屏提示 -->
-<div id="orientation-hint" class="hidden">
-  <div class="oh-icon">📱</div>
-  <div class="oh-text">请将手机旋转为<b>横屏</b>游玩<br>体验更佳</div>
-  <button class="btn primary" id="oh-dismiss">继续竖屏</button>
-</div>
+  <div class="overlay" id="overlay-menu">
+    <section class="menu-card" aria-label="游戏菜单">
+      <div class="menu-heading"><h1>贪吃蛇</h1><span class="menu-edition" id="theme-caption">霓虹 · 夜行</span></div>
+      <div class="menu-scene"><canvas id="menu-snake" aria-label="静止的方块蛇与食物预览"></canvas></div>
+      <div class="menu-settings">
+        <div><span class="section-label" id="diff-label">难度</span><div id="diff-group" aria-labelledby="diff-label">
+          <button class="btn diff-btn" data-diff="easy" aria-pressed="false">简单<small>穿墙</small></button><button class="btn diff-btn active" data-diff="normal" aria-pressed="true">普通<small>标准</small></button><button class="btn diff-btn" data-diff="hard" aria-pressed="false">困难<small>障碍</small></button>
+        </div></div>
+        <div><span class="section-label" id="theme-label">皮肤</span><div id="theme-group" aria-labelledby="theme-label">
+          <button class="btn theme-btn active" data-theme="neon" aria-label="霓虹皮肤" aria-pressed="true"><canvas class="theme-preview" data-preview="neon" aria-hidden="true"></canvas><span class="theme-name">霓虹<svg class="icon selected-mark"><use href="#i-check"/></svg></span></button>
+          <button class="btn theme-btn" data-theme="pixel" aria-label="像素皮肤" aria-pressed="false"><canvas class="theme-preview" data-preview="pixel" aria-hidden="true"></canvas><span class="theme-name">像素<svg class="icon selected-mark"><use href="#i-check"/></svg></span></button>
+          <button class="btn theme-btn" data-theme="forest" aria-label="森林皮肤" aria-pressed="false"><canvas class="theme-preview" data-preview="forest" aria-hidden="true"></canvas><span class="theme-name">森林<svg class="icon selected-mark"><use href="#i-check"/></svg></span></button>
+        </div></div>
+      </div>
+      <div class="menu-start"><button class="btn primary" id="btn-start">开始游戏</button><p class="hint"><span class="hint-keyboard">方向键 / WASD 移动 · 空格暂停</span><span class="hint-touch">滑动棋盘 / 方向键移动 · 右上角暂停</span></p></div>
+      <div class="leaderboard"><div class="lb-heading"><h2 class="lb-title">最近战绩</h2><button id="btn-lb-all" aria-expanded="false">查看全部</button></div><div id="lb-list"><div class="lb-empty">第一局，从这里开始</div></div></div>
+    </section>
+  </div>
+</main>
+<div id="orientation-hint" class="hidden"><button id="oh-dismiss">继续竖屏</button></div>
 
 <script>
 'use strict';
@@ -534,7 +300,7 @@ const CONFIG = {
     every: 5,                     // 每吃 N 个食物（含特殊）触发一次幽灵模式
     durationMs: 3000              // 幽灵模式持续 3 秒
   },
-  particles: { max: 120 },        // 粒子数量上限（对象池固定容量）
+  particles: { max: 6 },        // 粒子数量上限（对象池固定容量）
   countdownMs: 3000               // 开局倒计时 3 秒
 };
 
@@ -543,19 +309,25 @@ const CONFIG = {
  * ============================================================ */
 const THEMES = {
   neon: {
-    name: '霓虹', bg: '#0b1020', grid: 'rgba(96, 165, 250, 0.07)', accent: '#22d3ee',
-    snake: { head: '#22d3ee', mid: '#06b6d4', tail: '#0e7490', eye: '#0f172a', eyeWhite: '#ffffff' },
-    food: '#fb7185', special: '#fbbf24', obstacle: '#334155', pixelStyle: false
+    name: '霓虹', caption: '霓虹 · 夜行', bg: '#101e2a', page: '#101923', panel: '#172732',
+    text: '#e7f2f3', subtext: '#a4bac1', border: '#354b57', hover: '#203743', overlay: 'rgba(7,17,24,.60)',
+    grid: 'rgba(117,175,192,.065)', accent: '#22d3ee', ghost: '#93cbd8', glow: true,
+    snake: { head: '#22d3ee', mid: '#19b5cc', tail: '#287d90', eye: '#101923', eyeWhite: '#f2f7f4' },
+    food: '#ee8193', special: '#e8c879', obstacle: '#455b6a', obstacleEdge: '#78909c', pixelStyle: false
   },
   pixel: {
-    name: '像素', bg: '#1a1a2e', grid: 'rgba(255, 255, 255, 0.05)', accent: '#ff6b6b',
-    snake: { head: '#ffd166', mid: '#f4a261', tail: '#e76f51', eye: '#22223b', eyeWhite: '#ffffff' },
-    food: '#ef476f', special: '#06d6a0', obstacle: '#3d3d5c', pixelStyle: true
+    name: '像素', caption: '像素 · 经典', bg: '#232b26', page: '#171c1a', panel: '#28312b',
+    text: '#f2ebdd', subtext: '#aab5ac', border: '#4b574c', hover: '#354034', overlay: 'rgba(13,18,15,.58)',
+    grid: 'rgba(190,191,157,.07)', accent: '#e9b85f', ghost: '#b7d4c4', glow: false,
+    snake: { head: '#e9b85f', mid: '#dca25c', tail: '#be7e49', eye: '#28261e', eyeWhite: '#f2ebdd' },
+    food: '#e97862', special: '#81bead', obstacle: '#626850', obstacleEdge: '#969c7c', pixelStyle: true
   },
   forest: {
-    name: '森林', bg: '#0f1f14', grid: 'rgba(74, 222, 128, 0.07)', accent: '#4ade80',
-    snake: { head: '#a3e635', mid: '#4ade80', tail: '#15803d', eye: '#052e16', eyeWhite: '#ffffff' },
-    food: '#fb7185', special: '#facc15', obstacle: '#3f3f2a', pixelStyle: false
+    name: '森林', caption: '森林 · 漫游', bg: '#202e25', page: '#142219', panel: '#26392c',
+    text: '#f0ecdc', subtext: '#afbeaa', border: '#4a634d', hover: '#344a35', overlay: 'rgba(10,22,14,.56)',
+    grid: 'rgba(177,191,150,.065)', accent: '#b7cb84', ghost: '#c5d8bb', glow: false,
+    snake: { head: '#b7cb84', mid: '#96b174', tail: '#68864f', eye: '#24311e', eyeWhite: '#f0ecdc' },
+    food: '#d88998', special: '#e1c58d', obstacle: '#657464', obstacleEdge: '#95a18a', pixelStyle: false
   }
 };
 
@@ -686,22 +458,23 @@ class AudioManager {
  * ============================================================ */
 class ParticleSystem {
   constructor(max) {
-    this.max = max;
+    this.max = Math.min(6, max);
     this.pool = [];
-    for (let i = 0; i < max; i++)
-      this.pool.push({ active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 3, color: '#fff' });
+    for (let i = 0; i < this.max; i++)
+      this.pool.push({ active: false, x: 0, y: 0, vx: 0, vy: 0, life: 0, maxLife: 1, size: 2, color: '#fff' });
   }
-  burst(x, y, color, count) {
-    let spawned = 0;
-    for (const p of this.pool) {
-      if (spawned >= count) break;
-      if (p.active) continue;
-      const a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 160;
+  burst(x, y, color, count = 6) {
+    // A new bite replaces the previous burst, keeping a fixed six-particle limit.
+    this.clear();
+    const total = Math.min(this.max, Math.max(0, count));
+    for (let i = 0; i < total; i++) {
+      const p = this.pool[i];
+      const angle = (i / total) * Math.PI * 2 + Math.random() * 0.3;
+      const speed = 24 + Math.random() * 28;
       p.active = true; p.x = x; p.y = y;
-      p.vx = Math.cos(a) * sp; p.vy = Math.sin(a) * sp;
-      p.maxLife = 400 + Math.random() * 400; p.life = p.maxLife;
-      p.size = 2 + Math.random() * 4; p.color = color;
-      spawned++;
+      p.vx = Math.cos(angle) * speed; p.vy = Math.sin(angle) * speed;
+      p.maxLife = 180 + Math.random() * 70; p.life = p.maxLife;
+      p.size = 2 + Math.floor(Math.random() * 2); p.color = color;
     }
   }
   update(dt) {
@@ -711,18 +484,18 @@ class ParticleSystem {
       if (p.life <= 0) { p.active = false; continue; }
       p.x += (p.vx * dt) / 1000;
       p.y += (p.vy * dt) / 1000;
-      p.vy += (400 * dt) / 1000;
-      p.vx *= 0.98; p.vy *= 0.98;
     }
   }
   draw(ctx) {
+    ctx.save();
+    ctx.shadowBlur = 0;
     for (const p of this.pool) {
       if (!p.active) continue;
-      ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 1);
+      ctx.globalAlpha = clamp(p.life / p.maxLife, 0, 1) * 0.8;
       ctx.fillStyle = p.color;
-      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+      ctx.fillRect(Math.round(p.x - p.size / 2), Math.round(p.y - p.size / 2), p.size, p.size);
     }
-    ctx.globalAlpha = 1;
+    ctx.restore();
   }
   clear() { for (const p of this.pool) p.active = false; }
 }
@@ -863,8 +636,10 @@ class Renderer {
     this.cellSize = 15;
     this.boardSize = 300;
     this.particles = new ParticleSystem(CONFIG.particles.max);
+    this.reducedMotion = false;
+    this.headPulseStarted = -Infinity;
   }
-  /** 设置画布尺寸与 DPR 缩放 */
+  /** Set canvas dimensions and the device-pixel transform. */
   resize(cellSize, boardSize, dpr) {
     this.cellSize = cellSize;
     this.boardSize = boardSize;
@@ -874,105 +649,129 @@ class Renderer {
     this.canvas.height = boardSize * dpr;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
-  /** 生成粒子 */
-  burst(x, y, color, count) { this.particles.burst(x, y, color, count); }
-  updateParticles(dt) { this.particles.update(dt); }
-  clearParticles() { this.particles.clear(); }
+  burst(x, y, color, count) {
+    if (this.reducedMotion) return;
+    this.particles.burst(x, y, color, count);
+  }
+  pulseHead() { this.headPulseStarted = this.reducedMotion ? -Infinity : performance.now(); }
+  updateParticles(dt) {
+    if (this.reducedMotion) this.clearParticles();
+    else this.particles.update(dt);
+  }
+  clearParticles() { this.particles.clear(); this.headPulseStarted = -Infinity; }
 
-  /**
-   * 主渲染入口
-   * @param {number} now 时间戳（用于动画）
-   * @param {object} view 视图数据：{ theme, snake, food, obstacles, ghostActive }
-   */
+  /** view may override reducedMotion; the animation clock never changes the model. */
   render(now, view) {
     const { theme, snake, food, obstacles, ghostActive } = view;
+    if (typeof view.reducedMotion === 'boolean') this.reducedMotion = view.reducedMotion;
+    if (this.reducedMotion) this.clearParticles();
     const ctx = this.ctx, cell = this.cellSize, size = this.boardSize;
-
-    // 背景 + 暗角
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    ctx.imageSmoothingEnabled = !theme.pixelStyle;
     ctx.fillStyle = theme.bg;
     ctx.fillRect(0, 0, size, size);
-    const g = ctx.createRadialGradient(size / 2, size / 2, size * 0.1, size / 2, size / 2, size * 0.75);
-    g.addColorStop(0, 'rgba(255,255,255,0.03)');
-    g.addColorStop(1, 'rgba(0,0,0,0.25)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, size, size);
 
-    // 网格
+    // A static, low-contrast grid keeps the moving blocks easy to follow.
     ctx.strokeStyle = theme.grid;
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let i = 1; i < CONFIG.grid; i++) {
-      ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, size);
-      ctx.moveTo(0, i * cell); ctx.lineTo(size, i * cell);
+      ctx.moveTo(i * cell + 0.5, 0); ctx.lineTo(i * cell + 0.5, size);
+      ctx.moveTo(0, i * cell + 0.5); ctx.lineTo(size, i * cell + 0.5);
     }
     ctx.stroke();
 
     this._drawObstacles(obstacles, cell, theme);
-    this._drawFood(now, food, cell, theme);
-    this._drawSpecial(now, food, cell, theme);
-    this._drawSnake(snake, cell, theme, ghostActive);
-
-    // 幽灵模式边缘光晕
+    this._drawFood(food, cell, theme);
+    this._drawSpecial(food, cell, theme);
+    this._drawSnake(snake, cell, theme, ghostActive, view.now ?? now);
     if (ghostActive) {
       ctx.save();
-      ctx.strokeStyle = 'rgba(192, 132, 252, ' + (0.5 + Math.sin(now / 120) * 0.3) + ')';
-      ctx.lineWidth = 4;
-      ctx.shadowColor = '#c084fc';
-      ctx.shadowBlur = 18;
-      roundRect(ctx, 2, 2, size - 4, size - 4, 14);
-      ctx.stroke();
+      ctx.strokeStyle = theme.ghost || theme.accent;
+      ctx.globalAlpha = 0.75;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 5]);
+      ctx.strokeRect(2.5, 2.5, size - 5, size - 5);
       ctx.restore();
     }
-
     this.particles.draw(ctx);
+    ctx.restore();
   }
 
   _drawObstacles(obstacles, cell, theme) {
+    const ctx = this.ctx, inset = Math.max(1, Math.round(cell * 0.1));
     for (const o of obstacles) {
-      roundRect(this.ctx, o.x * cell + 2, o.y * cell + 2, cell - 4, cell - 4, cell * 0.15);
-      this.ctx.fillStyle = theme.obstacle;
-      this.ctx.fill();
+      const x = o.x * cell + inset, y = o.y * cell + inset, size = cell - inset * 2;
+      ctx.fillStyle = theme.obstacle;
+      ctx.fillRect(x, y, size, size);
+      ctx.strokeStyle = theme.obstacleEdge || theme.grid;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
+      ctx.fillStyle = theme.obstacleEdge || theme.grid;
+      ctx.fillRect(x + 2, y + 2, Math.max(1, Math.round(size * 0.3)), 1);
     }
-    this.ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    for (const o of obstacles)
-      this.ctx.fillRect(o.x * cell + cell * 0.22, o.y * cell + cell * 0.18, cell * 0.22, cell * 0.14);
   }
 
-  _drawFood(now, food, cell, theme) {
+  _drawFood(food, cell, theme) {
     const f = food.food;
     if (!f) return;
     const ctx = this.ctx;
     const cx = f.x * cell + cell / 2, cy = f.y * cell + cell / 2;
-    const pulse = 1 + Math.sin(now / 180) * 0.15;
-    const r = cell * 0.34 * pulse;
+    const radius = cell * 0.29;
     ctx.save();
-    ctx.shadowColor = theme.food; ctx.shadowBlur = 16;
     ctx.fillStyle = theme.food;
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+    if (theme.pixelStyle) {
+      const unit = Math.max(1, Math.floor(cell / 7));
+      const x = Math.round(cx - unit * 2.5), y = Math.round(cy - unit * 2.5);
+      ctx.fillRect(x + unit, y, unit * 3, unit * 5);
+      ctx.fillRect(x, y + unit, unit * 5, unit * 3);
+      ctx.fillStyle = theme.snake.eyeWhite;
+      ctx.globalAlpha = 0.5;
+      ctx.fillRect(x + unit, y + unit, unit, unit);
+    } else {
+      if (theme.glow) { ctx.shadowColor = theme.food; ctx.shadowBlur = 6; }
+      ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = theme.snake.eyeWhite;
+      ctx.beginPath(); ctx.arc(cx - radius * 0.27, cy - radius * 0.3, radius * 0.2, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.restore();
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.beginPath(); ctx.arc(cx - r * 0.25, cy - r * 0.3, r * 0.28, 0, Math.PI * 2); ctx.fill();
   }
 
-  _drawSpecial(now, food, cell, theme) {
+  _drawSpecial(food, cell, theme) {
     const s = food.special;
     if (!s) return;
     const ctx = this.ctx;
     const cx = s.x * cell + cell / 2, cy = s.y * cell + cell / 2;
-    const pulse = 1 + Math.sin(now / 150) * 0.2;
-    const outer = cell * 0.42 * pulse, inner = outer * 0.45;
-    ctx.save();
-    ctx.shadowColor = theme.special; ctx.shadowBlur = 20;
-    ctx.fillStyle = theme.special;
-    starPath(ctx, cx, cy, outer, inner, 5);
-    ctx.fill();
-    ctx.restore();
     const remain = clamp(food.specialRemaining / CONFIG.specialFood.lifetime, 0, 1);
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, cell * 0.46, -Math.PI / 2, -Math.PI / 2 + remain * Math.PI * 2);
-    ctx.stroke();
+    ctx.save();
+    ctx.fillStyle = theme.special;
+    if (theme.pixelStyle) {
+      const unit = Math.max(1, Math.floor(cell / 9));
+      const x = Math.round(cx - unit * 3.5), y = Math.round(cy - unit * 3.5);
+      const rows = ['0001000', '0001000', '1111111', '0111110', '0011100', '0110110', '1100011'];
+      rows.forEach((row, iy) => {
+        for (let ix = 0; ix < row.length; ix++)
+          if (row[ix] === '1') ctx.fillRect(x + ix * unit, y + iy * unit, unit, unit);
+      });
+      ctx.fillStyle = theme.text || theme.snake.eyeWhite;
+      ctx.fillRect(s.x * cell + cell * 0.15, (s.y + 1) * cell - 2, cell * 0.7 * remain, 1);
+    } else {
+      if (theme.glow) { ctx.shadowColor = theme.special; ctx.shadowBlur = 6; }
+      starPath(ctx, cx, cy, cell * 0.35, cell * 0.16, 5);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = theme.text || theme.snake.eyeWhite;
+      ctx.globalAlpha = 0.7;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(cx, cy, cell * 0.45, -Math.PI / 2, -Math.PI / 2 + remain * Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   _bodyColor(i, len, theme) {
@@ -981,59 +780,71 @@ class Renderer {
     return mixColor(theme.snake.mid, theme.snake.tail, (p - 0.5) * 2);
   }
 
-  _drawSnake(snake, cell, theme, ghostActive) {
-    const ctx = this.ctx;
-    const body = snake.body, len = body.length;
-
-    // 幽灵模式：蛇身半透明（体现"穿行"感）
-    if (ghostActive) ctx.globalAlpha = 0.6;
+  _drawSnake(snake, cell, theme, ghostActive, now) {
+    const ctx = this.ctx, body = snake.body, len = body.length;
+    if (!len) return;
+    const inset = Math.max(1, Math.round(cell * 0.07));
     ctx.save();
-    if (!theme.pixelStyle) { ctx.shadowColor = ghostActive ? '#c084fc' : theme.accent; ctx.shadowBlur = 12; }
-
+    if (ghostActive) ctx.globalAlpha = 0.68;
     for (let i = len - 1; i >= 1; i--) {
-      const seg = body[i], x = seg.x * cell, y = seg.y * cell;
+      const x = body[i].x * cell + inset, y = body[i].y * cell + inset;
+      const size = cell - inset * 2;
+      ctx.fillStyle = this._bodyColor(i, len, theme);
       if (theme.pixelStyle) {
-        ctx.fillStyle = this._bodyColor(i, len, theme);
-        ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2);
+        ctx.fillRect(x, y, size, size);
+        ctx.save();
+        ctx.globalAlpha *= 0.16;
+        ctx.fillStyle = theme.snake.eyeWhite;
+        ctx.fillRect(x + 2, y + 2, Math.max(1, Math.floor(cell * 0.15)), 1);
+        ctx.restore();
       } else {
-        const inset = 1.5;
-        roundRect(ctx, x + inset, y + inset, cell - inset * 2, cell - inset * 2, cell * 0.28);
-        ctx.fillStyle = this._bodyColor(i, len, theme);
+        roundRect(ctx, x, y, size, size, cell * 0.14);
         ctx.fill();
       }
+      if (ghostActive) {
+        ctx.strokeStyle = theme.ghost || theme.accent;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
+      }
     }
+    this._drawHead(snake, cell, theme, ghostActive, now);
     ctx.restore();
-    this._drawHead(snake, cell, theme);
-    if (ghostActive) ctx.globalAlpha = 1;
   }
 
-  _drawHead(snake, cell, theme) {
-    const ctx = this.ctx;
-    const head = snake.body[0], dir = snake.direction;
+  _drawHead(snake, cell, theme, ghostActive, now) {
+    const ctx = this.ctx, head = snake.body[0], dir = snake.direction;
     const x = head.x * cell, y = head.y * cell;
     const cx = x + cell / 2, cy = y + cell / 2;
-
+    const elapsed = Math.max(0, now - this.headPulseStarted);
+    const scale = this.reducedMotion ? 1 : 1 + 0.08 * Math.max(0, 1 - elapsed / 120);
     ctx.save();
-    ctx.shadowColor = theme.accent; ctx.shadowBlur = 14;
-    if (theme.pixelStyle) {
-      ctx.fillStyle = theme.snake.head; ctx.fillRect(x, y, cell, cell);
-    } else {
-      roundRect(ctx, x, y, cell, cell, cell * 0.32);
-      ctx.fillStyle = theme.snake.head; ctx.fill();
+    ctx.translate(cx, cy); ctx.scale(scale, scale); ctx.translate(-cx, -cy);
+    ctx.fillStyle = theme.snake.head;
+    if (theme.glow && !theme.pixelStyle && !ghostActive) { ctx.shadowColor = theme.snake.head; ctx.shadowBlur = 5; }
+    if (theme.pixelStyle) ctx.fillRect(x, y, cell, cell);
+    else { roundRect(ctx, x, y, cell, cell, cell * 0.17); ctx.fill(); }
+    ctx.shadowBlur = 0;
+    if (ghostActive) {
+      ctx.strokeStyle = theme.ghost || theme.accent;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, cell - 1, cell - 1);
+    }
+
+    // Eye positions follow the logical direction; only the drawing is scaled.
+    const px = -dir.y, py = dir.x;
+    const eo = cell * 0.24, fo = cell * 0.17, er = cell * 0.14, pupilR = er * 0.55;
+    for (const sign of [-1, 1]) {
+      const ex = cx + px * eo * sign + dir.x * fo;
+      const ey = cy + py * eo * sign + dir.y * fo;
+      ctx.fillStyle = theme.snake.eyeWhite;
+      if (theme.pixelStyle) ctx.fillRect(Math.round(ex - er), Math.round(ey - er), Math.max(2, Math.round(er * 2)), Math.max(2, Math.round(er * 2)));
+      else { ctx.beginPath(); ctx.arc(ex, ey, er, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = theme.snake.eye;
+      const pupilX = ex + dir.x * pupilR * 0.6, pupilY = ey + dir.y * pupilR * 0.6;
+      if (theme.pixelStyle) ctx.fillRect(Math.round(pupilX - pupilR), Math.round(pupilY - pupilR), Math.max(1, Math.round(pupilR * 2)), Math.max(1, Math.round(pupilR * 2)));
+      else { ctx.beginPath(); ctx.arc(pupilX, pupilY, pupilR, 0, Math.PI * 2); ctx.fill(); }
     }
     ctx.restore();
-
-    // 眼睛随方向转动
-    const px = -dir.y, py = dir.x;
-    const eo = cell * 0.24, fo = cell * 0.16, er = cell * 0.13, pupilR = er * 0.55;
-    for (const sgn of [-1, 1]) {
-      const ex = cx + px * eo * sgn + dir.x * fo;
-      const ey = cy + py * eo * sgn + dir.y * fo;
-      ctx.fillStyle = theme.snake.eyeWhite;
-      ctx.beginPath(); ctx.arc(ex, ey, er, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = theme.snake.eye;
-      ctx.beginPath(); ctx.arc(ex + dir.x * pupilR * 0.6, ey + dir.y * pupilR * 0.6, pupilR, 0, Math.PI * 2); ctx.fill();
-    }
   }
 }
 
@@ -1061,6 +872,11 @@ class InputHandler {
     document.getElementById('btn-menu-from-pause').addEventListener('click', () => this.game.backToMenu());
     document.getElementById('btn-again').addEventListener('click', () => this.game.startGame(this.game.difficulty));
     document.getElementById('btn-menu').addEventListener('click', () => this.game.backToMenu());
+
+    document.getElementById('btn-lb-all').addEventListener('click', () => {
+      this.game.leaderboardExpanded = !this.game.leaderboardExpanded;
+      this.game.renderLeaderboard();
+    });
 
     // 声音开关
     document.getElementById('btn-mute').addEventListener('click', () => this.game.toggleMute());
@@ -1158,6 +974,17 @@ class Game {
 
     // DOM 缓存
     this.el = {
+      app: document.getElementById('app'),
+      statusStrip: document.getElementById('status-strip'),
+      reward: document.getElementById('reward-toast'),
+      specialBadge: document.getElementById('special-badge'),
+      comboCount: document.getElementById('combo-count'),
+      comboTime: document.getElementById('combo-time'),
+      comboMeter: document.getElementById('combo-meter'),
+      ghostTime: document.getElementById('ghost-time'),
+      ghostMeter: document.getElementById('ghost-meter'),
+      specialTime: document.getElementById('special-time'),
+      specialMeter: document.getElementById('special-meter'),
       hud: document.getElementById('hud'),
       controls: document.getElementById('touch-controls'),
       boardWrap: document.getElementById('board-wrap'),
@@ -1194,6 +1021,16 @@ class Game {
     this.lastFrame = performance.now();
     this.startTime = 0;
     this.orientationDismissed = false;
+    this.rewardUntil = 0;
+    this.resultDueAt = 0;
+    this.deathSceneNow = 0;
+    this.leaderboardExpanded = false;
+    this.motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
+    this.renderer.reducedMotion = this.motionPreference.matches;
+    this.motionPreference.addEventListener('change', e => {
+      this.renderer.reducedMotion = e.matches;
+      if (e.matches) this.renderer.clearParticles();
+    });
 
     this.snake = new Snake();
     this.food = new Food();
@@ -1229,6 +1066,16 @@ class Game {
   };
 
   update(dt, now) {
+    // Presentation deadlines share the existing loop; restarting cancels them.
+    if (this.rewardUntil && now >= this.rewardUntil) {
+      this.rewardUntil = 0;
+      this.el.reward.classList.remove('show');
+      this.el.reward.textContent = '';
+    }
+    if (this.resultDueAt && now >= this.resultDueAt) {
+      this.resultDueAt = 0;
+      if (this.state === 'gameover') this.showOverlay('gameover');
+    }
     // 倒计时
     if (this.state === 'countdown') {
       const elapsed = now - this.countdownStart;
@@ -1271,6 +1118,7 @@ class Game {
 
     }
 
+    this.updateStatusUI();
     this.renderer.updateParticles(dt);
   }
 
@@ -1286,7 +1134,8 @@ class Game {
       const fx = (f.x + 0.5) * this.renderer.cellSize, fy = (f.y + 0.5) * this.renderer.cellSize;
       this.gainScore(CONFIG.scoring.normal);
       this.snake.pendingGrowth += 1;
-      this.renderer.burst(fx, fy, this.theme.food, 16);
+      this.renderer.burst(fx, fy, this.theme.food, 6);
+      this.renderer.pulseHead();
       this.audio.eat(this.comboCount);
       this.food.onNormalEaten(this.snake, this.obstacles);
       this.onFoodEaten();
@@ -1296,7 +1145,8 @@ class Game {
       const fx = (f.x + 0.5) * this.renderer.cellSize, fy = (f.y + 0.5) * this.renderer.cellSize;
       this.gainScore(CONFIG.scoring.special);
       this.snake.pendingGrowth += 2;
-      this.renderer.burst(fx, fy, this.theme.special, 26);
+      this.renderer.burst(fx, fy, this.theme.special, 6);
+      this.renderer.pulseHead();
       this.audio.special();
       this.food.onSpecialEaten();
       this.onFoodEaten();
@@ -1318,7 +1168,7 @@ class Game {
     this.updateGhostBadge();
     this.audio.ghost();
     const head = this.snake.body[0];
-    this.renderer.burst((head.x + 0.5) * this.renderer.cellSize, (head.y + 0.5) * this.renderer.cellSize, '#c084fc', 30);
+    this.renderer.burst((head.x + 0.5) * this.renderer.cellSize, (head.y + 0.5) * this.renderer.cellSize, this.theme.ghost, 4);
   }
 
   gainScore(base) {
@@ -1344,10 +1194,10 @@ class Game {
 
   die(reason = 'self') {
     this.state = 'gameover';
-    document.getElementById('result-title').textContent = reason === 'win' ? '🎉 棋盘已填满，通关！' : '游戏结束';
+    document.getElementById('result-title').textContent = reason === 'win' ? '棋盘已填满，通关！' : '游戏结束';
     document.getElementById('result-reason').textContent = ({wall: '撞到墙壁了', self: '撞到自己了', obstacle: '撞到障碍物了', win: '所有可用格子都已占满'}[reason]);
     const head = this.snake.body[0];
-    this.renderer.burst((head.x + 0.5) * this.renderer.cellSize, (head.y + 0.5) * this.renderer.cellSize, this.theme.snake.head, 26);
+    this.renderer.burst((head.x + 0.5) * this.renderer.cellSize, (head.y + 0.5) * this.renderer.cellSize, this.theme.snake.head, 4);
     if (reason === 'win') this.audio.special(); else this.audio.death();
 
     const prevHigh = Storage.best(this.difficulty); // 本局开始前已持久化的最高分
@@ -1360,7 +1210,10 @@ class Game {
     this.el.goHigh.textContent = this.highscore;
     this.el.goTime.textContent = formatTime(this.elapsed);
     this.el.recordBadge.classList.toggle('show', isRecord);
-    this.showOverlay('gameover');
+    this.deathSceneNow = performance.now();
+    this.resultDueAt = this.deathSceneNow + 200;
+    this.hideOverlays();
+    this.syncStateUI();
     this.renderLeaderboard();
   }
 
@@ -1377,6 +1230,11 @@ class Game {
   }
 
   resetRun() {
+    this.resultDueAt = 0;
+    this.deathSceneNow = 0;
+    this.rewardUntil = 0;
+    this.el.reward.classList.remove('show');
+    this.el.reward.textContent = '';
     this.snake = new Snake();
     this.food = new Food();
     this.obstacles = this._generateObstacles();
@@ -1449,6 +1307,7 @@ class Game {
     else if (name === 'countdown') this.el.countdown.classList.remove('hidden');
     else if (name === 'pause') this.el.pause.classList.remove('hidden');
     else if (name === 'gameover') this.el.gameover.classList.remove('hidden');
+    this.syncStateUI();
   }
   hideOverlays() {
     this.el.menu.classList.add('hidden');
@@ -1467,7 +1326,10 @@ class Game {
   toggleMute() {
     this.audio.ensure();
     this.audio.enabled = !this.audio.enabled;
-    document.getElementById('btn-mute').textContent = this.audio.enabled ? '🔊' : '🔇';
+    const button = document.getElementById('btn-mute');
+    button.classList.toggle('is-muted', !this.audio.enabled);
+    button.setAttribute('aria-pressed', String(!this.audio.enabled));
+    button.title = this.audio.enabled ? '关闭声音' : '开启声音';
   }
 
   /* ---------- 难度 / 主题 ---------- */
@@ -1483,8 +1345,40 @@ class Game {
     this.audio.ensure(); this.audio.click();
     this.theme = THEMES[name];
     Storage.saveTheme(name);
-    document.documentElement.style.setProperty('--accent', this.theme.accent);
-    document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === name));
+    const vars = { accent: 'accent', bg: 'page', board: 'bg', panel: 'panel', text: 'text',
+      subtext: 'subtext', border: 'border', hover: 'hover', ghost: 'ghost', food: 'food', special: 'special', overlay: 'overlay' };
+    for (const [css, key] of Object.entries(vars)) document.documentElement.style.setProperty('--' + css, this.theme[key]);
+    document.body.dataset.theme = name;
+    document.getElementById('theme-caption').textContent = this.theme.caption;
+    document.querySelectorAll('.theme-btn').forEach(b => {
+      const active = b.dataset.theme === name;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-pressed', String(active));
+    });
+    this.drawMenuPreviews();
+  }
+
+  drawMenuPreviews() {
+    // The same renderer draws miniature scenes; preview models never enter a run.
+    const draw = (canvas, theme, large) => {
+      const renderer = new Renderer(canvas);
+      const width = large ? 240 : Math.max(60, Math.round(canvas.getBoundingClientRect().width));
+      const height = large ? 48 : Math.max(28, Math.round(canvas.getBoundingClientRect().height));
+      const cell = large ? 16 : Math.min(12, Math.floor(width / 9));
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      canvas.width = width * dpr; canvas.height = height * dpr;
+      renderer.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      renderer.cellSize = cell; renderer.boardSize = width; renderer.reducedMotion = true;
+      const headX = large ? 8 : 3;
+      if (!large) renderer.ctx.translate(Math.floor((width - cell * 9) / 2), Math.floor((height - cell * 3) / 2));
+      const snake = { body: Array.from({ length: large ? 5 : 3 }, (_, i) => ({ x: headX - i, y: 1 })), direction: DIRECTIONS.right };
+      const food = { food: { x: large ? 11 : 5, y: 1 }, special: { x: large ? 13 : 7, y: 1 }, specialRemaining: CONFIG.specialFood.lifetime };
+      renderer.ctx.fillStyle = theme.bg;
+      renderer.ctx.fillRect(-width, -height, width * 3, height * 3);
+      renderer.render(0, { theme, snake, food, obstacles: [], ghostActive: false });
+    };
+    document.querySelectorAll('.theme-preview').forEach(c => draw(c, THEMES[c.dataset.preview], false));
+    draw(document.getElementById('menu-snake'), this.theme, true);
   }
 
   /* ---------- 横屏提示 ---------- */
@@ -1507,62 +1401,85 @@ class Game {
   /* ---------- UI 更新 ---------- */
   updateScoreUI() { this.el.score.textContent = this.score; }
   updateHighscoreUI() { this.el.highscore.textContent = this.highscore; }
-  updateDifficultyUI() { this.el.difficulty.textContent = DIFF_NAMES[this.difficulty]; this.highscore = Storage.best(this.difficulty); this.updateHighscoreUI(); }
+  updateDifficultyUI() {
+    this.el.difficulty.textContent = DIFF_NAMES[this.difficulty];
+    this.highscore = Storage.best(this.difficulty); this.updateHighscoreUI();
+    document.querySelectorAll('.diff-btn').forEach(b => {
+      const active = b.dataset.diff === this.difficulty;
+      b.classList.toggle('active', active); b.setAttribute('aria-pressed', String(active));
+    });
+  }
   updateComboBadge() {
-    const b = this.el.comboBadge;
-    if (this.comboCount > 1) { b.textContent = `🔥 连续 ${this.comboCount} 个`; b.classList.remove('hidden'); }
-    else b.classList.add('hidden');
+    this.el.comboBadge.classList.toggle('active', this.comboCount > 0 && this.comboRemaining > 0);
+    this.el.comboCount.textContent = this.comboCount;
+    this.el.comboTime.textContent = Math.max(0, this.comboRemaining / 1000).toFixed(1) + 's';
+    this.el.comboMeter.style.width = clamp(this.comboRemaining / CONFIG.scoring.comboWindowMs * 100, 0, 100) + '%';
   }
   updateGhostBadge() {
-    const b = this.el.ghostBadge;
-    b.classList.toggle('ending', this.ghostActive && this.ghostRemaining <= 1000);
-    if (this.ghostActive) { b.textContent = `👻 幽灵 ${(this.ghostRemaining / 1000).toFixed(1)}s`; b.classList.remove('hidden'); }
-    else b.classList.add('hidden');
+    this.el.ghostBadge.classList.toggle('active', this.ghostActive);
+    this.el.ghostTime.textContent = Math.max(0, this.ghostRemaining / 1000).toFixed(1) + 's';
+    this.el.ghostMeter.style.width = clamp(this.ghostRemaining / CONFIG.ghost.durationMs * 100, 0, 100) + '%';
+    this.el.boardWrap.classList.toggle('has-ghost', this.ghostActive);
+  }
+
+  updateStatusUI() {
+    this.updateComboBadge();
+    this.updateGhostBadge();
+    this.el.specialBadge.classList.toggle('active', !!this.food.special);
+    this.el.specialTime.textContent = Math.max(0, this.food.specialRemaining / 1000).toFixed(1) + 's';
+    this.el.specialMeter.style.width = clamp(this.food.specialRemaining / CONFIG.specialFood.lifetime * 100, 0, 100) + '%';
+  }
+
+  syncStateUI() {
+    if (this.el.app.dataset.state !== this.state) this.el.app.dataset.state = this.state;
+    const pause = document.getElementById('btn-pause');
+    pause.disabled = this.state === 'menu' || this.state === 'gameover';
+    pause.setAttribute('aria-label', this.state === 'paused' ? '继续游戏' : '暂停游戏');
   }
   showComboPop(bonus) {
-    const el = document.createElement('div');
-    el.className = 'combo-pop';
-    el.textContent = `连续 ${this.comboCount} 个 · 奖励 +${bonus}`;
-    this.el.boardWrap.appendChild(el);
-    setTimeout(() => el.remove(), 1000);
+    this.el.reward.textContent = `连吃奖励 +${bonus}`;
+    this.el.reward.classList.add('show');
+    this.rewardUntil = performance.now() + 500;
   }
 
   renderLeaderboard() {
     const list = Storage.leaderboard;
-    if (!list.length) { this.el.lbList.innerHTML = '<div class="lb-empty">暂无记录</div>'; return; }
-    this.el.lbList.innerHTML = list.map((e, i) => {
+    const all = document.getElementById('btn-lb-all');
+    all.classList.toggle('hidden', list.length <= 3);
+    all.setAttribute('aria-expanded', String(this.leaderboardExpanded));
+    all.textContent = this.leaderboardExpanded ? '收起' : '查看全部';
+    if (!list.length) { this.el.lbList.innerHTML = '<div class="lb-empty">第一局，从这里开始</div>'; return; }
+    this.el.lbList.innerHTML = list.slice(0, this.leaderboardExpanded ? list.length : 3).map((e, i) => {
       const diff = DIFF_NAMES[e.difficulty] || '普通';
-      const diffCls = DIFF_CLASSES[e.difficulty] || 'diff-normal';
-      return `<div class="lb-row">
-        <span class="lb-rank">${i + 1}</span>
-        <span class="lb-score">${e.score}</span>
-        <span class="lb-tag ${diffCls}">${diff}</span>
-        <span class="lb-time">${formatTime(e.time)}</span>
-        <span class="lb-date">${formatDate(e.date)}</span>
-      </div>`;
+      return `<div class="lb-row"><span class="lb-rank">${i + 1}</span><span class="lb-score">${e.score}</span>
+        <span class="lb-tag">${diff}</span><span class="lb-time">${formatTime(e.time)}</span><span class="lb-date">${formatDate(e.date)}</span></div>`;
     }).join('');
   }
 
   /* ---------- 自适应尺寸：实测占用，保证始终完整显示 ---------- */
   resize() {
-    const app = document.getElementById('app');
     const bodyStyle = getComputedStyle(document.body);
-    const gap = parseFloat(getComputedStyle(app).gap) || 12;
+    const gap = parseFloat(getComputedStyle(this.el.app).gap) || 0;
     const width = document.body.clientWidth - parseFloat(bodyStyle.paddingLeft) - parseFloat(bodyStyle.paddingRight);
     const height = document.body.clientHeight - parseFloat(bodyStyle.paddingTop) - parseFloat(bodyStyle.paddingBottom);
     const landscape = this.isTouch && matchMedia('(orientation: landscape) and (max-height: 600px)').matches;
-    const hintH = document.getElementById('touch-hint').offsetHeight;
-    const controlsH = this.el.controls.offsetHeight;
-    const availW = landscape ? width - 190 - gap : Math.min(width, 620);
-    const availH = height - this.el.hud.offsetHeight - (landscape ? gap : gap + (controlsH ? controlsH + gap : 0) + (hintH ? hintH + gap : 0));
-    const size = Math.min(availW, availH, CONFIG.canvas.max);
-    const cell = Math.max(1, Math.floor(size / CONFIG.grid));
-    this.renderer.resize(cell, cell * CONFIG.grid, Math.min(window.devicePixelRatio || 1, 2));
+    const hintH = landscape ? 0 : document.getElementById('touch-hint').offsetHeight;
+    const controlsH = landscape ? 0 : this.el.controls.offsetHeight;
+    const gapCount = 2 + (hintH ? 1 : 0) + (controlsH ? 1 : 0);
+    const availW = width - (landscape ? 170 : 0);
+    const availH = height - this.el.hud.offsetHeight - this.el.statusStrip.offsetHeight - hintH - controlsH - gap * gapCount;
+    const cell = Math.max(1, Math.floor(Math.min(availW, availH, CONFIG.canvas.max) / CONFIG.grid));
+    const boardSize = cell * CONFIG.grid;
+    this.el.app.style.setProperty('--board-size', boardSize + 'px');
+    this.el.app.classList.toggle('compact-board', boardSize < 360);
+    this.renderer.resize(cell, boardSize, Math.min(window.devicePixelRatio || 1, 2));
+    this.drawMenuPreviews();
   }
 
   /* ---------- 渲染 ---------- */
   render(now) {
-    this.renderer.render(now, {
+    this.syncStateUI();
+    this.renderer.render(this.state === 'gameover' ? this.deathSceneNow : now, {
       theme: this.theme,
       snake: this.snake,
       food: this.food,
