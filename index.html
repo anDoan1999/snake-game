@@ -94,40 +94,60 @@
   #app[data-state="gameover"] #reward-toast { visibility: hidden; }
   #app.compact-board #overlay-gameover { position: fixed; z-index: 40; }
   #app.compact-board .status-detail { display: none; }
-  #overlay-menu { z-index: 30; background: var(--bg); overflow-y: auto; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); }
-  .menu-card { width: 100%; max-width: 540px; padding: 22px 26px; margin: auto; }
-  .menu-heading { display: flex; align-items: baseline; justify-content: space-between; }
-  .menu-heading h1 { font-size: 26px; letter-spacing: .04em; }
-  .menu-edition { font-size: 12px; color: var(--subtext); letter-spacing: .12em; }
-  .menu-scene { height: 62px; margin: 8px 0 14px; display: flex; justify-content: center; align-items: center; background: var(--board); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-  #menu-snake { width: 240px; height: 48px; }
-  .menu-settings { display: grid; gap: 12px; }
-  .section-label { display: block; margin-bottom: 6px; }
-  #diff-group, #theme-group { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
-  .diff-btn { min-width: 0; padding: 8px 2px; font-size: 13px; font-weight: 500; }
+  #overlay-menu {
+    position: fixed; inset: auto; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: min(620px, calc(100vw - 24px)); height: auto; max-height: calc(100dvh - 24px);
+    display: block; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin;
+    scrollbar-color: var(--border) var(--board); padding: 0; z-index: 30;
+    background: var(--board); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: inset 0 0 0 5px var(--board), inset 0 0 0 6px var(--border);
+  }
+  #menu-snake { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .menu-card { position: relative; z-index: 1; width: 100%; padding: 76px 48px 28px 72px; }
+  .menu-heading { margin: 0 0 22px; text-align: center; }
+  .menu-heading h1 { line-height: 0; margin: 0 auto; width: min(100%, 350px); }
+  #menu-wordmark { display: block; width: 100%; height: auto; overflow: visible; color: var(--text); }
+  .menu-edition { display: block; color: var(--subtext); font-size: 12px; letter-spacing: .12em; margin-top: 10px; }
+  .menu-settings { display: grid; gap: 18px; }
+  .section-label { display: block; margin-bottom: 7px; font-size: 14px; font-weight: 600; color: var(--text); }
+  #diff-group, #theme-group { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .diff-btn { min-width: 0; padding: 9px 2px; font-size: 14px; font-weight: 500; background: var(--board); }
   .diff-btn small { color: var(--subtext); margin-left: 5px; font-size: 12px; font-weight: 400; }
   .diff-btn.active { border-color: var(--accent); color: var(--accent); background: var(--panel); }
-  .theme-btn { position: relative; display: flex; flex-direction: column; align-items: stretch; padding: 5px; gap: 4px; min-width: 0; font-weight: 500; font-size: 12px; overflow: hidden; }
-  .theme-preview { width: 100%; height: 36px; display: block; border-radius: 2px; image-rendering: pixelated; }
+  .theme-btn { position: relative; display: flex; flex-direction: column; align-items: stretch; padding: 6px; gap: 6px; min-width: 0; font-weight: 500; font-size: 13px; overflow: hidden; background: var(--board); }
+  .theme-preview { width: 100%; height: 65px; display: block; border-radius: 2px; image-rendering: pixelated; }
   .theme-btn.active { border-color: var(--accent); background: var(--panel); color: var(--accent); }
-  .theme-name { padding: 0 5px; display: flex; justify-content: space-between; align-items: center; }
-  .selected-mark { width: 14px; height: 14px; visibility: hidden; }
+  .theme-name { padding: 0 3px 2px; display: flex; justify-content: space-between; align-items: center; }
+  .selected-mark { width: 15px; height: 15px; visibility: hidden; }
   .theme-btn.active .selected-mark { visibility: visible; }
-  .menu-start { margin-top: 16px; }
-  #btn-start { width: 100%; }
-  .hint { color: var(--subtext); font-size: 12px; text-align: center; margin-top: 8px; }
+  .menu-start { margin-top: 20px; }
+  #btn-start { width: 100%; min-height: 48px; font-size: 18px; letter-spacing: .04em; }
+  .hint { color: var(--subtext); font-size: 12px; text-align: center; margin-top: 9px; }
   .hint-touch { display: none; }
   .touch .hint-keyboard { display: none; }
   .touch .hint-touch { display: inline; }
-  .leaderboard { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .leaderboard { margin-top: 22px; border: 1px solid var(--border); background: var(--board); border-radius: var(--radius); padding: 12px 14px; }
   .lb-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-  .lb-title { font-size: 12px; color: var(--subtext); font-weight: 500; }
+  .lb-title { font-size: 13px; color: var(--text); font-weight: 600; }
   #btn-lb-all { border: 0; color: var(--subtext); padding: 4px 0 4px 12px; font-size: 12px; background: transparent; }
   #btn-lb-all:hover { color: var(--accent); }
-  .lb-row { display: grid; grid-template-columns: 16px 1fr 40px 46px 72px; align-items: center; gap: 8px; min-height: 26px; font-size: 12px; color: var(--subtext); }
+  .lb-row { display: grid; grid-template-columns: 14px 1fr 34px 42px 72px; align-items: center; gap: 7px; min-height: 28px; font-size: 12px; color: var(--subtext); border-top: 1px solid color-mix(in srgb, var(--border) 40%, transparent); }
   .lb-score { color: var(--text); font-weight: 600; }
   .lb-date { text-align: right; font-variant-numeric: tabular-nums; }
-  .lb-empty { font-size: 12px; color: var(--subtext); padding: 6px 0; }
+  .lb-empty { font-size: 12px; color: var(--subtext); padding: 10px 0; }
+  #app[data-state="menu"] #hud, #app[data-state="menu"] #status-strip { visibility: hidden; }
+  #berry-cursor { position: fixed; top: 0; left: 0; width: 26px; height: 30px; pointer-events: none; z-index: 1000; display: none; color: var(--food); }
+  #berry-cursor.visible { display: block; }
+  #overlay-menu.has-berry-cursor, #overlay-menu.has-berry-cursor * { cursor: none !important; }
+  @media (max-height: 760px) and (min-width: 481px) {
+    .menu-card { padding-top: 62px; padding-bottom: 20px; }
+    .menu-heading { margin-bottom: 16px; }
+    .menu-heading h1 { width: 300px; }
+    .menu-settings { gap: 12px; }
+    .theme-preview { height: 48px; }
+    .menu-start { margin-top: 16px; }
+    .leaderboard { margin-top: 16px; padding-top: 8px; padding-bottom: 8px; }
+  }
   #touch-hint { display: none; font-size: 12px; color: var(--subtext); height: 18px; flex: 0 0 auto; }
   #touch-controls { display: none; grid-template-columns: repeat(3,44px); grid-template-rows: repeat(2,44px); gap: 6px; flex: 0 0 auto; }
   .touch #touch-hint { display: block; }
@@ -147,9 +167,16 @@
     .stats { gap: 14px; }
     .hud-actions { gap: 4px; }
     .icon-btn { width: 36px; height: 40px; }
-    .menu-card { padding: 16px; }
+    .menu-card { padding: 44px 16px 12px 36px; }
+    .menu-heading { margin-bottom: 12px; }
+    .menu-heading h1 { width: 230px; max-width: 100%; }
+    .menu-edition { margin-top: 5px; }
+    .theme-preview { height: 42px; }
+    .menu-start { margin-top: 12px; }
+    .leaderboard { margin-top: 12px; padding: 8px; }
+    .lb-row { min-height: 25px; }
     .menu-heading h1 { font-size: 24px; }
-    .menu-scene { margin: 8px 0 12px; height: 54px; }
+
     .diff-btn small { display: block; margin: 0; }
     .diff-btn { padding: 5px 2px; }
     .menu-settings { gap: 10px; }
@@ -162,17 +189,28 @@
     .status-grid { gap: 8px; }
     .lb-row { gap: 5px; grid-template-columns: 14px 1fr 32px 40px 68px; }
   }
+  @media (max-width: 480px) and (max-height: 620px) {
+    .menu-card { padding-top: 40px; }
+    .menu-heading { margin-bottom: 8px; }
+    .menu-edition { margin-top: 3px; }
+    .section-label { margin-bottom: 4px; line-height: 1.3; }
+    .theme-preview { height: 32px; }
+    .theme-btn { gap: 4px; }
+    .lb-row { min-height: 22px; }
+    .leaderboard { margin-top: 8px; }
+  }
   @media (orientation: landscape) and (max-height: 600px) {
     .touch #app { padding-right: 170px; width: calc(var(--board-size) + 170px); }
     .touch #touch-controls { position: absolute; right: 6px; top: 50%; transform: translateY(-20%); }
     .touch #touch-hint { position: absolute; width: 152px; text-align: center; right: 0; top: calc(50% - 38px); height: auto; }
-    #overlay-menu { position: fixed; inset: 10px max(10px,calc((100vw - 720px)/2)); }
-    .menu-card { max-width: none; display: grid; grid-template-columns: 1.3fr 1fr; column-gap: 24px; padding: 18px 24px; }
-    .menu-heading { grid-column: 1 / -1; }
-    .menu-scene { grid-column: 1; margin-bottom: 8px; height: 48px; }
-    .menu-settings { grid-column: 1; gap: 8px; }
-    .menu-start { grid-column: 2; grid-row: 2; margin-top: 8px; }
-    .leaderboard { grid-column: 2; grid-row: 3; margin-top: 10px; padding-top: 8px; }
+    #overlay-menu { width: min(720px, calc(100vw - 20px)); padding: 0; }
+    .menu-card { display: grid; grid-template-columns: 1.3fr 1fr; column-gap: 24px; padding: 48px 28px 18px 52px; }
+    .menu-heading { grid-column: 1; margin-bottom: 12px; }
+    .menu-heading h1 { width: 220px; }
+    .menu-edition { margin-top: 4px; }
+    .menu-settings { grid-column: 1; grid-row: 2 / 4; gap: 8px; }
+    .menu-start { grid-column: 2; grid-row: 1; margin-top: 8px; }
+    .leaderboard { grid-column: 2; grid-row: 2 / 4; margin-top: 0; padding: 8px; align-self: start; }
     .diff-btn small { display: none; }
     .theme-preview { height: 28px; }
     #app { gap: 4px; }
@@ -252,9 +290,35 @@
     <button class="dpad-btn dpad-right" data-dir="right" aria-label="向右"><svg class="icon"><use href="#i-arrow"/></svg></button>
   </div>
   <div class="overlay" id="overlay-menu">
+    <canvas id="menu-snake" aria-hidden="true"></canvas>
     <section class="menu-card" aria-label="游戏菜单">
-      <div class="menu-heading"><h1>贪吃蛇</h1><span class="menu-edition" id="theme-caption">霓虹 · 夜行</span></div>
-      <div class="menu-scene"><canvas id="menu-snake" aria-label="静止的方块蛇与食物预览"></canvas></div>
+      <div class="menu-heading"><h1 aria-label="贪吃蛇"><svg id="menu-wordmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 112" role="img" aria-label="贪吃蛇">
+  <g fill="currentColor">
+    <!-- 贪: the roof and 贝 keep their full silhouettes around the eyes. -->
+    <path d="M47 3Q51 1 57 2L63 3Q78 17 106 27Q111 29 109 34L104 44Q102 48 98 46L78 38Q65 33 56 27Q44 36 31 41L13 47Q9 48 7 44L2 34Q0 30 4 28Q32 18 47 3Z"/>
+    <path d="M22 50H91Q95 50 95 54V75Q95 78 91 78H79Q76 78 76 75V66H37V75Q37 78 34 78H21Q18 78 18 75V55Q18 50 22 50Z"/>
+    <path d="M49 68H63Q67 68 67 72L66 77Q80 85 101 88Q106 89 105 94L101 104Q100 108 96 107Q71 100 56 90Q42 100 15 107Q11 108 9 104L5 94Q3 89 8 87Q39 81 49 68Z"/>
+    <!-- 吃: open mouth and the rising, softly squared 乞 stroke. -->
+    <path d="M129 25H156Q159 25 159 28V41Q159 44 156 44H145V74H156Q159 74 159 77V91Q159 94 156 94H129Q126 94 126 91V29Q126 25 129 25Z"/>
+    <path d="M179 5L191 8Q194 9 192 13L190 18H229Q231 18 231 21V34Q231 37 228 37H181L177 43H220Q223 43 223 47V58Q223 61 220 63L190 87H212L214 78Q215 75 218 76L230 78Q234 79 233 83L232 94Q231 107 219 108H185Q170 108 167 99Q164 89 172 81L192 62H178Q173 62 171 59L173 46L164 41Q160 39 163 35Q172 22 179 5Z"/>
+    <!-- 蛇: a legible 虫 radical and a compact, coiled 它. -->
+    <path fill-rule="evenodd" d="M267 5H278Q281 5 281 8V23H293Q296 23 296 27V66Q296 70 292 70H281V84L283 83L282 77L294 74L301 99Q302 103 298 104L287 107L285 100L253 106Q250 107 250 103L248 92Q247 89 251 88L267 86V70H252Q249 70 249 67V27Q249 23 252 23H267V8Q267 5 267 5ZM261 39V54H266V39ZM281 39V54H286V39Z"/>
+    <path d="M315 5H329Q333 5 333 9V17H354Q359 17 359 22V40Q359 45 354 45H341Q337 45 337 41V33H315V43Q315 47 311 47H302Q299 47 299 43V22Q299 17 303 17H315Z"/>
+    <path d="M337 49Q350 48 351 58Q352 67 340 67H329Q320 67 320 77V89Q320 93 325 93H337V81Q337 76 343 76H350Q356 76 356 82V92Q356 109 339 110H323Q303 110 301 93V72Q301 50 320 49Z"/>
+  </g>
+  <g class="title-eye" data-cx="48" data-cy="36">
+    <ellipse class="eye-white" cx="48" cy="36" rx="10" ry="11" fill="#f2f1de" stroke="var(--bg)" stroke-width="1.4"/>
+    <circle class="title-pupil" cx="48" cy="36" r="3.6" fill="var(--bg)"/>
+  </g>
+  <g class="title-eye" data-cx="74" data-cy="36">
+    <ellipse class="eye-white" cx="74" cy="36" rx="10" ry="11" fill="#f2f1de" stroke="var(--bg)" stroke-width="1.4"/>
+    <circle class="title-pupil" cx="74" cy="36" r="3.6" fill="var(--bg)"/>
+  </g>
+  <circle cx="166" cy="63" r="7.3" fill="var(--food)"/>
+  <ellipse cx="164.2" cy="60.8" rx="2.1" ry="2.6" fill="#fff" opacity=".15"/>
+  <circle cx="348" cy="29" r="3.5" fill="var(--bg)"/>
+</svg>
+</h1><span class="menu-edition" id="theme-caption">霓虹 · 夜行</span></div>
       <div class="menu-settings">
         <div><span class="section-label" id="diff-label">难度</span><div id="diff-group" aria-labelledby="diff-label">
           <button class="btn diff-btn" data-diff="easy" aria-pressed="false">简单<small>穿墙</small></button><button class="btn diff-btn active" data-diff="normal" aria-pressed="true">普通<small>标准</small></button><button class="btn diff-btn" data-diff="hard" aria-pressed="false">困难<small>障碍</small></button>
@@ -270,6 +334,11 @@
     </section>
   </div>
 </main>
+<svg id="berry-cursor" viewBox="0 0 26 30" aria-hidden="true">
+  <path d="M13 9Q10 2 5 3Q5 9 13 10Q16 2 22 4Q21 10 13 10" fill="var(--accent)"/>
+  <path d="M13 9C4 5 0 15 5 23Q13 32 21 23C27 15 22 5 13 9Z" fill="currentColor" stroke="var(--bg)" stroke-width="1.5"/>
+  <ellipse cx="8" cy="14" rx="2" ry="3" fill="#fff" opacity=".35"/>
+</svg>
 <div id="orientation-hint" class="hidden"><button id="oh-dismiss">继续竖屏</button></div>
 
 <script>
@@ -981,6 +1050,89 @@ class InputHandler {
 /* ============================================================
  * Game 类：主循环、状态管理、计分/连击/幽灵、主题、UI
  * ============================================================ */
+/* Presentation-only menu interaction; uses the game's existing animation loop. */
+class MenuInteraction {
+  constructor(game) {
+    this.game = game;
+    this.menu = document.getElementById('overlay-menu');
+    this.cursor = document.getElementById('berry-cursor');
+    this.logo = document.getElementById('menu-wordmark');
+    this.eyes = [...this.logo.querySelectorAll('.title-eye')].map(eye => ({
+      element: eye, pupil: eye.querySelector('.title-pupil'), x: 0, y: 0, targetX: 0, targetY: 0
+    }));
+    this.finePointer = matchMedia('(any-hover: hover) and (any-pointer: fine)');
+    this.active = false;
+    this.lastTime = 0;
+    this.mouse = { x: 0, y: 0 };
+    this.menu.addEventListener('pointermove', event => this.move(event));
+    this.menu.addEventListener('pointerdown', event => {
+      if (event.pointerType !== 'mouse') this.hide();
+      else this.move(event);
+    });
+    this.menu.addEventListener('pointerleave', () => this.hide());
+    this.menu.addEventListener('pointercancel', () => this.hide());
+    this.menu.addEventListener('scroll', () => this.resize());
+    this.menu.addEventListener('keydown', event => { if (event.key === 'Tab') this.hide(); });
+    window.addEventListener('blur', () => this.hide());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.hide(); });
+    this.finePointer.addEventListener('change', () => { if (!this.finePointer.matches) this.hide(); });
+    this.resize();
+  }
+  resize() {
+    const matrix = this.logo.getScreenCTM();
+    if (!matrix) return;
+    this.scale = Math.hypot(matrix.a, matrix.b) || 1;
+    for (const eye of this.eyes) {
+      const point = new DOMPoint(Number(eye.element.dataset.cx), Number(eye.element.dataset.cy)).matrixTransform(matrix);
+      eye.centerX = point.x; eye.centerY = point.y;
+    }
+    if (this.active) this.aim();
+  }
+  move(event) {
+    if (event.pointerType !== 'mouse' || !this.finePointer.matches || this.game.state !== 'menu') return;
+    if (!this.active) this.resize();
+    this.active = true;
+    this.mouse.x = event.clientX; this.mouse.y = event.clientY;
+    // Position updates immediately; the overlay never participates in hit testing.
+    this.cursor.style.transform = `translate3d(${event.clientX - 13}px, ${event.clientY - 17}px, 0)`;
+    this.cursor.classList.add('visible');
+    this.menu.classList.add('has-berry-cursor');
+    this.aim();
+  }
+  aim() {
+    for (const eye of this.eyes) {
+      const dx = (this.mouse.x - eye.centerX) / this.scale;
+      const dy = (this.mouse.y - eye.centerY) / this.scale;
+      const distance = Math.hypot(dx, dy);
+      // At most four SVG units: the full pupil always remains inside its eye white.
+      const amount = distance ? Math.min(4, distance * 0.045) / distance : 0;
+      eye.targetX = dx * amount; eye.targetY = dy * amount;
+    }
+  }
+  hide() {
+    this.active = false;
+    this.cursor.classList.remove('visible');
+    this.menu.classList.remove('has-berry-cursor');
+    for (const eye of this.eyes) { eye.targetX = 0; eye.targetY = 0; }
+  }
+  update(now) {
+    if (this.game.state !== 'menu') {
+      if (this.active) this.hide();
+      return;
+    }
+    const dt = this.lastTime ? Math.min(64, Math.max(0, now - this.lastTime)) : 16;
+    this.lastTime = now;
+    const blend = this.game.motionPreference.matches ? 1 : 1 - Math.exp(-dt / 55);
+    for (const eye of this.eyes) {
+      eye.x += (eye.targetX - eye.x) * blend;
+      eye.y += (eye.targetY - eye.y) * blend;
+      if (Math.abs(eye.x - eye.targetX) < 0.01) eye.x = eye.targetX;
+      if (Math.abs(eye.y - eye.targetY) < 0.01) eye.y = eye.targetY;
+      eye.pupil.setAttribute('transform', `translate(${eye.x.toFixed(3)} ${eye.y.toFixed(3)})`);
+    }
+  }
+}
+
 class Game {
   constructor() {
     Storage.load();
@@ -1055,6 +1207,7 @@ class Game {
     this.food = new Food();
     this.obstacles = [];
     this.audio = new AudioManager();
+    this.menuInteraction = new MenuInteraction(this);
 
     this.setTheme(Storage.theme);
     this.resize();
@@ -1097,7 +1250,7 @@ class Game {
     }
     // 倒计时
     if (this.state === 'countdown') {
-      const elapsed = now - this.countdownStart;
+      const elapsed = Math.max(0, now - this.countdownStart);
       if (elapsed >= CONFIG.countdownMs) {
         this.audio.countdown(0);
         this.state = 'playing';
@@ -1338,6 +1491,7 @@ class Game {
     else if (name === 'pause') this.el.pause.classList.remove('hidden');
     else if (name === 'gameover') this.el.gameover.classList.remove('hidden');
     this.syncStateUI();
+    if (name === 'menu') this.drawMenuPreviews();
   }
   hideOverlays() {
     this.el.menu.classList.add('hidden');
@@ -1389,6 +1543,69 @@ class Game {
     this.drawMenuPreviews();
   }
 
+  drawMenuScene() {
+    const canvas = document.getElementById('menu-snake');
+    const width = this.el.menu.clientWidth, height = this.el.menu.querySelector('.menu-card').offsetHeight;
+    if (!width || !height) return;
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    canvas.style.height = height + 'px';
+    canvas.width = width * dpr; canvas.height = height * dpr;
+    const ctx = canvas.getContext('2d'), theme = this.theme;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = theme.bg; ctx.fillRect(0, 0, width, height);
+    const cell = width < 400 ? 15 : 22;
+    ctx.strokeStyle = theme.grid; ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = cell; x < width; x += cell) { ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, height); }
+    for (let y = cell; y < height; y += cell) { ctx.moveTo(0, y + 0.5); ctx.lineTo(width, y + 0.5); }
+    ctx.stroke();
+    const renderer = new Renderer(canvas);
+    renderer.cellSize = cell; renderer.reducedMotion = true;
+    const headX = Math.floor(width * 0.7 / cell);
+    const body = [];
+    for (let x = headX; x >= 1; x--) body.push({ x, y: 1 });
+    for (let y = 2; y < Math.floor(height * 0.79 / cell); y++) body.push({ x: 1, y });
+    renderer._drawSnake({ body, direction: DIRECTIONS.right }, cell, theme, false, 0);
+    // Decorative objects use fixed positions, independent of gameplay randomness.
+    renderer._drawFood({ food: { x: Math.floor(width / cell) - 2, y: 4 } }, cell, theme);
+    renderer._drawFood({ food: { x: 2, y: Math.floor(height / cell) - 2 } }, cell, theme);
+    ctx.save(); ctx.fillStyle = theme.special;
+    starPath(ctx, width - cell, height * 0.56, 7, 3.2, 5); ctx.fill(); ctx.restore();
+    if (theme === THEMES.forest) {
+      const tree = (x, y, size) => {
+        ctx.fillStyle = theme.obstacleEdge; ctx.globalAlpha = 0.23;
+        ctx.fillRect(x - size * 0.12, y, size * 0.24, size * 0.7);
+        ctx.fillStyle = theme.snake.tail;
+        ctx.fillRect(x - size * 0.25, y - size * 0.55, size * 0.5, size * 0.2);
+        ctx.fillRect(x - size * 0.4, y - size * 0.35, size * 0.8, size * 0.35);
+        ctx.fillRect(x - size * 0.55, y, size * 1.1, size * 0.32);
+        ctx.globalAlpha = 1;
+      };
+      tree(width - 29, 31, 20); tree(width - 18, height * 0.73, 17); tree(19, height - 31, 21);
+      ctx.fillStyle = theme.snake.tail; ctx.globalAlpha = 0.28;
+      for (const [x, y] of [[width-21, height*.30],[width-20,height*.90],[15,height*.46],[47,height-25]]) {
+        ctx.fillRect(x, y, 2, 6); ctx.fillRect(x-3,y-2,2,5); ctx.fillRect(x+3,y-4,2,5);
+      }
+      ctx.globalAlpha = 1;
+    } else if (theme.pixelStyle) {
+      ctx.fillStyle = theme.obstacleEdge; ctx.globalAlpha = 0.3;
+      for (let i = 0; i < 20; i++) {
+        const x = i % 2 ? width - 16 - (i % 3) * 5 : 10 + (i % 3) * 5;
+        const y = 70 + ((i * 79) % Math.max(1, height - 95));
+        ctx.fillRect(x, y, 3, 3);
+      }
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.strokeStyle = theme.obstacleEdge; ctx.globalAlpha = 0.4;
+      for (const y of [height*.28,height*.78]) {
+        ctx.beginPath(); ctx.moveTo(width-8,y-16); ctx.lineTo(width-17,y-16); ctx.lineTo(width-17,y+15); ctx.lineTo(width-26,y+15); ctx.stroke();
+        ctx.strokeRect(width-29,y+13,4,4);
+      }
+      ctx.globalAlpha = 1;
+    }
+    this.menuInteraction?.resize();
+  }
+
   drawMenuPreviews() {
     // The same renderer draws miniature scenes; preview models never enter a run.
     const draw = (canvas, theme, large) => {
@@ -1409,7 +1626,7 @@ class Game {
       renderer.render(0, { theme, snake, food, obstacles: [], ghostActive: false });
     };
     document.querySelectorAll('.theme-preview').forEach(c => draw(c, THEMES[c.dataset.preview], false));
-    draw(document.getElementById('menu-snake'), this.theme, true);
+    this.drawMenuScene();
   }
 
   /* ---------- 横屏提示 ---------- */
@@ -1462,6 +1679,7 @@ class Game {
   }
 
   syncStateUI() {
+    if (this.state !== 'menu' && this.menuInteraction?.active) this.menuInteraction.hide();
     if (this.el.app.dataset.state !== this.state) this.el.app.dataset.state = this.state;
     const pause = document.getElementById('btn-pause');
     pause.disabled = this.state === 'menu' || this.state === 'gameover';
@@ -1479,12 +1697,13 @@ class Game {
     all.classList.toggle('hidden', list.length <= 3);
     all.setAttribute('aria-expanded', String(this.leaderboardExpanded));
     all.textContent = this.leaderboardExpanded ? '收起' : '查看全部';
-    if (!list.length) { this.el.lbList.innerHTML = '<div class="lb-empty">第一局，从这里开始</div>'; return; }
+    if (!list.length) { this.el.lbList.innerHTML = '<div class="lb-empty">第一局，从这里开始</div>'; this.drawMenuScene(); return; }
     this.el.lbList.innerHTML = list.slice(0, this.leaderboardExpanded ? list.length : 3).map((e, i) => {
       const diff = DIFF_NAMES[e.difficulty] || '普通';
       return `<div class="lb-row"><span class="lb-rank">${i + 1}</span><span class="lb-score">${e.score}</span>
         <span class="lb-tag">${diff}</span><span class="lb-time">${formatTime(e.time)}</span><span class="lb-date">${formatDate(e.date)}</span></div>`;
     }).join('');
+    this.drawMenuScene();
   }
 
   /* ---------- 自适应尺寸：实测占用，保证始终完整显示 ---------- */
@@ -1510,6 +1729,7 @@ class Game {
   /* ---------- 渲染 ---------- */
   render(now) {
     this.syncStateUI();
+    this.menuInteraction.update(now);
     this.renderer.render(this.state === 'gameover' ? this.deathSceneNow : now, {
       theme: this.theme,
       snake: this.snake,
