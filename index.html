@@ -4,12 +4,22 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>贪吃蛇 · Snake</title>
+<meta name="theme-color" content="#101923" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="贪吃蛇" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
 <style>
   :root {
     --accent: #22d3ee; --bg: #101923; --board: #101e2a; --panel: #172732;
     --text: #e7f2f3; --subtext: #a4bac1; --border: #354b57; --hover: #203743;
     --ghost: #93cbd8; --food: #ee8193; --special: #e8c879; --overlay: rgba(7,17,24,.60);
     --radius: 8px; --board-size: 600px;
+    --safe-top: env(safe-area-inset-top, 0px); --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px); --safe-left: env(safe-area-inset-left, 0px);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
@@ -17,6 +27,7 @@
     font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
     color: var(--text); background: var(--bg); display: flex; align-items: center;
     justify-content: center; height: 100dvh; padding: 12px; min-height: 0;
+    padding: calc(12px + var(--safe-top)) calc(12px + var(--safe-right)) calc(12px + var(--safe-bottom)) calc(12px + var(--safe-left));
     font-size: 14px; line-height: 1.5;
   }
   button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
@@ -92,11 +103,11 @@
   #app[data-state="gameover"] .stats { visibility: hidden; }
   #app[data-state="gameover"] .status-slot, #app[data-state="gameover"] .reward-line { visibility: hidden; }
   #app[data-state="gameover"] #reward-toast { visibility: hidden; }
-  #app.compact-board #overlay-gameover { position: fixed; z-index: 40; }
+  #app.compact-board #overlay-gameover { position: fixed; z-index: 40; inset: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left); }
   #app.compact-board .status-detail { display: none; }
   #overlay-menu {
-    position: fixed; inset: auto; left: 50%; top: 50%; transform: translate(-50%, -50%);
-    width: min(620px, calc(100vw - 24px)); height: auto; max-height: calc(100dvh - 24px);
+    position: fixed; inset: auto; left: calc((100vw + var(--safe-left) - var(--safe-right)) / 2); top: calc((100dvh + var(--safe-top) - var(--safe-bottom)) / 2); transform: translate(-50%, -50%);
+    width: min(620px, calc(100vw - 24px - var(--safe-left) - var(--safe-right))); height: auto; max-height: calc(100dvh - 24px - var(--safe-top) - var(--safe-bottom));
     display: block; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin;
     scrollbar-color: var(--border) var(--board); padding: 0; z-index: 30;
     background: var(--board); border: 1px solid var(--border); border-radius: var(--radius);
@@ -162,7 +173,7 @@
   body[data-theme="pixel"] .selected-mark, body[data-theme="pixel"] .icon { stroke-linecap: square; stroke-linejoin: miter; }
   #orientation-hint { display: none; }
   @media (max-width: 480px) {
-    body { padding: 8px; }
+    body { padding: calc(8px + var(--safe-top)) calc(8px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(8px + var(--safe-left)); }
     #hud { gap: 8px; }
     .stats { gap: 14px; }
     .hud-actions { gap: 4px; }
@@ -203,7 +214,7 @@
     .touch #app { padding-right: 170px; width: calc(var(--board-size) + 170px); }
     .touch #touch-controls { position: absolute; right: 6px; top: 50%; transform: translateY(-20%); }
     .touch #touch-hint { position: absolute; width: 152px; text-align: center; right: 0; top: calc(50% - 38px); height: auto; }
-    #overlay-menu { width: min(720px, calc(100vw - 20px)); padding: 0; }
+    #overlay-menu { width: min(720px, calc(100vw - 20px - var(--safe-left) - var(--safe-right))); padding: 0; }
     .menu-card { display: grid; grid-template-columns: 1.3fr 1fr; column-gap: 24px; padding: 48px 28px 18px 52px; }
     .menu-heading { grid-column: 1; margin-bottom: 12px; }
     .menu-heading h1 { width: 220px; }
@@ -234,6 +245,15 @@
     .btn:active, .icon-btn:active, .dpad-btn:active { transform: none; }
   }
 
+  .pwa-panel { grid-column: 1 / -1; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--subtext); font-size: 12px; line-height: 1.6; }
+  .pwa-panel summary { cursor: pointer; color: var(--text); min-height: 44px; display: flex; align-items: center; gap: 8px; width: fit-content; }
+  .pwa-panel summary::before { content: '+'; color: var(--accent); font-size: 18px; }
+  .pwa-panel details[open] summary::before { content: '−'; }
+  .pwa-panel summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .pwa-panel p { margin: 4px 0; }
+  .pwa-panel .btn { margin: 6px 0; font-size: 12px; }
+  .pwa-panel [hidden] { display: none !important; }
+  #pwa-status[data-ready="true"]::before { content: '✓ '; color: var(--accent); }
 </style>
 </head>
 <body data-theme="neon">
@@ -331,6 +351,16 @@
       </div>
       <div class="menu-start"><button class="btn primary" id="btn-start">开始游戏</button><p class="hint"><span class="hint-keyboard">方向键 / WASD 移动 · 空格暂停</span><span class="hint-touch">滑动棋盘 / 方向键移动 · 右上角暂停</span></p></div>
       <div class="leaderboard"><div class="lb-heading"><h2 class="lb-title">最近战绩</h2><button id="btn-lb-all" aria-expanded="false">查看全部</button></div><div id="lb-list"><div class="lb-empty">第一局，从这里开始</div></div></div>
+      <div class="pwa-panel">
+        <details id="pwa-install-help">
+          <summary>添加到桌面</summary>
+          <p id="pwa-instructions">在浏览器菜单中选择“安装应用”或“添加到主屏幕”。iPhone 请用 Safari 打开，再从“分享”菜单添加到主屏幕。</p>
+          <button type="button" class="btn" id="btn-install" hidden>安装贪吃蛇</button>
+        </details>
+        <p id="pwa-status" role="status">首次联网打开后，可准备离线游戏。</p>
+        <button type="button" class="btn" id="btn-offline-retry" hidden>重新准备离线内容</button>
+        <p id="pwa-update" role="status" hidden>新版本已准备好。关闭所有游戏窗口，再打开即可更新。</p>
+      </div>
     </section>
   </div>
 </main>
@@ -1745,5 +1775,6 @@ class Game {
  * ============================================================ */
 const game = new Game();
 </script>
+<script src="./pwa.js" defer></script>
 </body>
 </html>

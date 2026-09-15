@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "贪吃蛇 · Snake",
+  "short_name": "贪吃蛇",
+  "description": "三种皮肤，触屏畅玩。离线准备完成后，随时来一局贪吃蛇。",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101923",
+  "theme_color": "#101923",
+  "categories": ["games"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
